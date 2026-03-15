@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   MapPin,
   Calendar,
@@ -33,8 +33,15 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function PostJobPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const preferredProvider = useMemo(() => {
+    const id = searchParams.get("preferredProviderId") || "";
+    const name = searchParams.get("preferredProviderName") || "";
+    return id ? { id, name } : null;
+  }, [searchParams]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -80,15 +87,142 @@ export default function PostJobPage() {
       setIsSubmitting(false);
       return;
     }
+    try {
+      // Prefer an explicit environment variable. Falls back to development defaults.
+      // In this repo the backend runs on 3003; many users were pointing to 3001 by mistake.
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      let url = "";
 
-    // Simulate API call
-    setTimeout(() => {
+      if (apiUrl) {
+        try {
+          new URL(apiUrl);
+          url = `${apiUrl.replace(/\/$/, "")}/jobs`;
+        } catch (err) {
+          // Not an absolute URL — allow leading-relative paths like "/api"
+          if (apiUrl.startsWith("/")) {
+            url = `${apiUrl.replace(/\/$/, "")}/jobs`;
+          } else {
+            toast({
+              title: "Invalid API URL",
+              description:
+                "NEXT_PUBLIC_API_URL is not a valid URL. Check your environment configuration.",
+              variant: "destructive",
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } else {
+        // Fallback to a reasonable dev default. we expect the frontend to run on 3000
+        // and backend on 3003; using same-origin (3000) would cause CORS, so prefer
+        // the hardcoded backend port when running locally.
+        if (typeof window !== "undefined" && window.location) {
+          const origin = window.location.origin;
+          if (origin.includes("localhost")) {
+            url = `http://localhost:3003/jobs`;
+          } else {
+            url = `${origin}/jobs`;
+          }
+        } else {
+          url = `/jobs`;
+        }
+      }
+
+      const body = new FormData();
+      body.append("title", formData.title);
+      body.append("category", formData.category);
+      body.append("description", formData.description);
+      body.append(
+        "budgetType",
+        formData.budgetType === "fixed" ? "FIXED" : "HOURLY",
+      );
+      if (formData.budgetAmount)
+        body.append("budgetAmount", String(formData.budgetAmount));
+      body.append(
+        "timeline",
+        formData.timeline === "urgent"
+          ? "URGENT"
+          : formData.timeline === "within_week"
+            ? "WITHIN_WEEK"
+            : "FLEXIBLE",
+      );
+      body.append("location", formData.location);
+      if (formData.address) body.append("address", formData.address);
+      if (preferredProvider?.id) {
+        body.append("preferredProviderId", preferredProvider.id);
+      }
+
+      // Attach photos (up to 5)
+      formData.photos.slice(0, 5).forEach((file) => {
+        body.append("photos", file);
+      });
+
+      // Try to get token from localStorage (adjust if you store auth differently)
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+      // If the user is not authenticated we can't post a job. prompt them.
+      if (!token) {
+        toast({
+          title: "Not logged in",
+          description: "Please sign in before posting a job.",
+          variant: "destructive",
+        });
+        router.push("/auth/login?role=client");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // In dev show a small toast with the final URL and token presence to help debug network/CORS issues
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("Post job URL:", url);
+        try {
+          toast({
+            title: "Sending request to API (dev)",
+            description: `${url} — token ${token ? "present" : "missing"}`,
+          });
+        } catch (e) {
+          // ignore toast failures in edge cases
+        }
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        body,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({
+          title: "Failed to post job",
+          description: err?.message || "Server returned an error",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       toast({
         title: "Job posted successfully!",
         description: "Providers will start sending quotes shortly.",
       });
-      router.push("/dashboard/client/jobs");
-    }, 2000);
+      router.push("/client/jobs");
+    } catch (error: any) {
+      console.error("Post job error", error);
+      // Provide more actionable feedback for network/URL/CORS failures
+      const isNetworkError =
+        error instanceof TypeError &&
+        /failed to fetch/i.test(String(error.message));
+      toast({
+        title: isNetworkError ? "Network request failed" : "Failed to post job",
+        description: isNetworkError
+          ? "Could not reach the API. Check NEXT_PUBLIC_API_URL, server status, and CORS settings."
+          : error?.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +241,11 @@ export default function PostJobPage() {
         <p className="text-gray-600 mt-2">
           Describe what you need and get quotes from local professionals
         </p>
+        {preferredProvider && (
+          <p className="text-sm text-emerald-700 mt-2">
+            This job will be sent to {preferredProvider.name || "your provider"}.
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -423,34 +562,6 @@ export default function PostJobPage() {
                   </div>
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tips Card */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-blue-800 mb-2">
-                  Tips for Better Quotes
-                </h3>
-                <ul className="space-y-1 text-sm text-blue-700">
-                  <li>• Include specific measurements if applicable</li>
-                  <li>
-                    • Mention if you already have materials or need them
-                    provided
-                  </li>
-                  <li>
-                    • Specify access requirements (parking, building access)
-                  </li>
-                  <li>
-                    • Mention any time restrictions (work hours only, weekends
-                    only)
-                  </li>
-                </ul>
-              </div>
             </div>
           </CardContent>
         </Card>

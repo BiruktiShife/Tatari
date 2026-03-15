@@ -31,7 +31,6 @@ export default function LoginPage() {
     rememberMe: false,
   });
 
-  // ✅ Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -40,7 +39,6 @@ export default function LoginPage() {
     }));
   };
 
-  // ✅ REAL LOGIN CONNECTED TO BACKEND
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -58,23 +56,51 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      let rawText = "";
+      try {
+        data = await res.json();
+      } catch {
+        rawText = await res.text().catch(() => "");
+      }
 
       if (!res.ok) {
+        const message =
+          typeof data?.message === "string"
+            ? data.message
+            : rawText || "Login failed";
+        if (res.status === 403) {
+          toast({
+            title: "Approval pending",
+            description:
+              "Your account is awaiting approval. Please wait for an admin to approve you.",
+            variant: "destructive",
+          });
+          return;
+        }
         toast({
           title: "Login failed",
-          description: data.message || "Invalid credentials",
+          description: message || "Invalid credentials",
           variant: "destructive",
         });
         return;
       }
 
-      // ✅ Save JWT if backend returns it
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
+      // ✅ Save JWT if backend returns it (note: backend returns `accessToken`) (backend uses camelCase property)
+      if (data.accessToken) {
+        localStorage.setItem("token", data.accessToken);
       }
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
+      }
+      // dev-only debug info
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("login response", data);
+        const stored = localStorage.getItem("token");
+        toast({
+          title: "Debug",
+          description: `token ${stored ? "stored" : "missing"}`,
+        });
       }
       toast({
         title: "Successfully logged in!",

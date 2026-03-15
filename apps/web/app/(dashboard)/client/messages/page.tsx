@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search,
   Send,
-  Paperclip,
-  Image,
   MoreVertical,
   CheckCheck,
+  Sparkles,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,380 +23,399 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Define types
-interface Message {
-  id: string;
-  sender: "provider" | "you";
-  text: string;
-  timestamp: string;
-}
-
-interface Provider {
-  name: string;
-  avatar: string;
-  job: string;
-  status: "active" | "completed";
-}
-
-interface Conversation {
-  id: string;
-  provider: Provider;
+type Conversation = {
+  key: string;
+  otherUserId: string;
+  otherUserName: string;
+  jobId: string;
+  jobTitle: string;
   lastMessage: string;
-  timestamp: string;
-  unread: number;
-  messages: Message[];
-}
-
-const initialConversations: Conversation[] = [
-  {
-    id: "1",
-    provider: {
-      name: "Samuel Plumbing",
-      avatar: "SP",
-      job: "Fix Kitchen Sink",
-      status: "active",
-    },
-    lastMessage: "I can come tomorrow at 10 AM. Does that work for you?",
-    timestamp: "10:30 AM",
-    unread: 2,
-    messages: [
-      {
-        id: "1",
-        sender: "provider",
-        text: "Hi John, I saw your job posting. I can fix your sink.",
-        timestamp: "Yesterday, 2:30 PM",
-      },
-      {
-        id: "2",
-        sender: "you",
-        text: "Great! When are you available?",
-        timestamp: "Yesterday, 2:45 PM",
-      },
-      {
-        id: "3",
-        sender: "provider",
-        text: "I can come tomorrow at 10 AM. Does that work for you?",
-        timestamp: "Today, 10:30 AM",
-      },
-    ],
-  },
-  {
-    id: "2",
-    provider: {
-      name: "Dawit Painting",
-      avatar: "DP",
-      job: "Paint Living Room",
-      status: "completed",
-    },
-    lastMessage: "The paint has dried completely. You can move furniture back.",
-    timestamp: "2 days ago",
-    unread: 0,
-    messages: [
-      {
-        id: "1",
-        sender: "provider",
-        text: "Paint job completed successfully.",
-        timestamp: "2 days ago",
-      },
-    ],
-  },
-  {
-    id: "3",
-    provider: {
-      name: "Marta Graphic Design",
-      avatar: "MG",
-      job: "Logo Design",
-      status: "active",
-    },
-    lastMessage: "Here are the logo concepts I promised.",
-    timestamp: "1 week ago",
-    unread: 0,
-    messages: [],
-  },
-];
-
-// Type-safe function to get default conversation
-const getDefaultConversation = (): Conversation => {
-  return initialConversations[0]; // We know this exists
+  lastMessageAt: string;
 };
 
-export default function MessagesPage() {
-  const [conversations, setConversations] =
-    useState<Conversation[]>(initialConversations);
-  const [activeConversationId, setActiveConversationId] = useState<string>(
-    getDefaultConversation().id
-  );
-  const [message, setMessage] = useState("");
+type MessageItem = {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  createdAt: string;
+};
 
-  // Get active conversation with type-safe fallback
-  const getActiveConversation = (): Conversation => {
-    const found = conversations.find((c) => c.id === activeConversationId);
-    // TypeScript now knows this always returns a Conversation
-    return found || getDefaultConversation();
+type SelectedConversation = {
+  jobId: string;
+  otherUserId?: string;
+  otherUserName: string;
+  jobTitle: string;
+};
+
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
+      throw err;
+    }
+  }
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+  return path;
+}
+
+function formatTime(dateStr: string) {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+export default function ClientMessagesPage() {
+  const searchParams = useSearchParams();
+  const [myUserId, setMyUserId] = useState("");
+  const [search, setSearch] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selected, setSelected] = useState<SelectedConversation | null>(null);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const loadConversations = async () => {
+    if (!token) return;
+    setLoadingConversations(true);
+    try {
+      const res = await fetch(resolveApiUrl("/messages/conversations"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        setConversations([]);
+        return;
+      }
+      const data = await res.json();
+      setConversations(Array.isArray(data) ? data : []);
+    } finally {
+      setLoadingConversations(false);
+    }
   };
 
-  const activeConversation = getActiveConversation();
+  const loadMessages = async (target: SelectedConversation) => {
+    if (!token) return;
+    setLoadingMessages(true);
+    try {
+      const query = target.otherUserId
+        ? `?otherUserId=${encodeURIComponent(target.otherUserId)}`
+        : "";
+      const res = await fetch(
+        resolveApiUrl(`/messages/job/${target.jobId}${query}`),
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) {
+        setMessages([]);
+        return;
+      }
+      const data = await res.json();
+      setMessages(Array.isArray(data) ? data : []);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.id) setMyUserId(parsed.id);
+      } catch {
+        // ignore parse errors
+      }
+    }
+    loadConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender: "you",
-      text: message,
-      timestamp: "Just now",
-    };
+  useEffect(() => {
+    const jobId = searchParams.get("job");
+    if (!jobId || !conversations.length) return;
 
-    // Update conversations state
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id === activeConversationId) {
-          return {
-            ...conv,
-            messages: [...conv.messages, newMessage],
-            lastMessage: message,
-            timestamp: "Just now",
-            unread: 0,
-          };
-        }
-        return conv;
-      })
+    const existing = conversations.find((c) => c.jobId === jobId);
+    if (existing) {
+      setSelected({
+        jobId: existing.jobId,
+        otherUserId: existing.otherUserId,
+        otherUserName: existing.otherUserName,
+        jobTitle: existing.jobTitle,
+      });
+    }
+  }, [conversations, searchParams]);
+
+  useEffect(() => {
+    if (!selected && conversations.length) {
+      const first = conversations[0];
+      setSelected({
+        jobId: first.jobId,
+        otherUserId: first.otherUserId,
+        otherUserName: first.otherUserName,
+        jobTitle: first.jobTitle,
+      });
+    }
+  }, [conversations, selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    loadMessages(selected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.jobId, selected?.otherUserId]);
+
+  const filteredConversations = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter((c) =>
+      [c.otherUserName, c.jobTitle, c.lastMessage]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
     );
+  }, [conversations, search]);
 
-    setMessage("");
+  const handleSelectConversation = (conv: Conversation) => {
+    setSelected({
+      jobId: conv.jobId,
+      otherUserId: conv.otherUserId,
+      otherUserName: conv.otherUserName,
+      jobTitle: conv.jobTitle,
+    });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const sendMessage = async () => {
+    const content = newMessage.trim();
+    if (!content || !selected || !selected.otherUserId || !token) return;
+
+    setSending(true);
+    try {
+      const res = await fetch(resolveApiUrl("/messages"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jobId: selected.jobId,
+          receiverId: selected.otherUserId,
+          content,
+        }),
+      });
+      if (!res.ok) return;
+
+      setNewMessage("");
+      await loadMessages(selected);
+      await loadConversations();
+    } finally {
+      setSending(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Messages</h1>
-        <p className="text-gray-600 mt-2">
-          Communicate with your service providers
+    <div className="space-y-5">
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-5 sm:p-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
+          <Sparkles className="h-4 w-4" />
+          Client Communication
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Messages</h1>
+        <p className="text-slate-200 mt-1">
+          Keep all provider conversations organized by job.
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Conversations Sidebar */}
-        <div className="lg:col-span-1">
-          <Card className="h-[calc(100vh-250px)]">
-            <CardContent className="p-0">
-              {/* Search */}
-              <div className="p-4 border-b">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search conversations..."
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+      <div className="h-[calc(100vh-280px)] min-h-[520px] flex border rounded-xl overflow-hidden bg-white">
+        <aside className="w-full md:w-80 border-r bg-slate-50/60">
+          <div className="p-3 border-b bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search conversations..."
+                className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
 
-              {/* Conversations List */}
-              <div className="overflow-y-auto h-[calc(100vh-350px)]">
-                {conversations.map((conversation) => (
-                  <div
-                    key={conversation.id}
-                    className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-                      activeConversationId === conversation.id
-                        ? "bg-blue-50"
-                        : ""
-                    }`}
-                    onClick={() => setActiveConversationId(conversation.id)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
-                          {conversation.provider.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <div className="font-semibold truncate">
-                            {conversation.provider.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {conversation.timestamp}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {conversation.provider.job}
-                          </Badge>
-                          <Badge
-                            variant={
-                              conversation.provider.status === "active"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {conversation.provider.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 truncate mt-2">
-                          {conversation.lastMessage}
+          <div className="overflow-y-auto h-[calc(100vh-355px)]">
+            {loadingConversations ? (
+              <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
+            ) : filteredConversations.length ? (
+              filteredConversations.map((conversation) => (
+                <button
+                  key={conversation.key}
+                  className={`w-full text-left p-3 border-b hover:bg-white transition-colors ${
+                    selected?.jobId === conversation.jobId &&
+                    selected?.otherUserId === conversation.otherUserId
+                      ? "bg-white"
+                      : ""
+                  }`}
+                  onClick={() => handleSelectConversation(conversation)}
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-blue-100 text-blue-700">
+                        {getInitials(conversation.otherUserName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium truncate">
+                          {conversation.otherUserName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatTime(conversation.lastMessageAt)}
                         </p>
                       </div>
-                      {conversation.unread > 0 && (
-                        <Badge className="ml-2 bg-blue-600">
-                          {conversation.unread}
+                      <p className="text-sm text-gray-600 truncate mt-1">
+                        {conversation.lastMessage}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {conversation.jobTitle}
                         </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Chat Window - Now safe to access activeConversation properties */}
-        <div className="lg:col-span-2">
-          <Card className="h-[calc(100vh-250px)]">
-            <CardContent className="p-0 h-full flex flex-col">
-              {/* Chat Header */}
-              <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-100 text-blue-600">
-                      {activeConversation.provider.avatar}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-semibold">
-                      {activeConversation.provider.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {activeConversation.provider.job}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      activeConversation.provider.status === "active"
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {activeConversation.provider.status}
-                  </Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical size={20} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View Job Details</DropdownMenuItem>
-                      <DropdownMenuItem>View Provider Profile</DropdownMenuItem>
-                      <DropdownMenuItem>Mark as Unread</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
-                        Block Provider
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {activeConversation.messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender === "you" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        msg.sender === "you"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      <p>{msg.text}</p>
-                      <div
-                        className={`text-xs mt-2 flex items-center gap-1 ${
-                          msg.sender === "you"
-                            ? "text-blue-200"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {msg.timestamp}
-                        {msg.sender === "you" && <CheckCheck size={12} />}
                       </div>
                     </div>
                   </div>
-                ))}
+                </button>
+              ))
+            ) : (
+              <div className="p-4 text-sm text-gray-500">No conversations yet</div>
+            )}
+          </div>
+        </aside>
+
+        <section className="flex-1 flex flex-col">
+          {selected ? (
+            <>
+              <header className="p-4 border-b flex items-center justify-between bg-white">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar>
+                    <AvatarFallback className="bg-indigo-100 text-indigo-700">
+                      {getInitials(selected.otherUserName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{selected.otherUserName}</p>
+                    <p className="text-sm text-gray-500 truncate flex items-center gap-1">
+                      <BriefcaseBusiness className="h-3.5 w-3.5" />
+                      {selected.jobTitle}
+                    </p>
+                  </div>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>View Job Details</DropdownMenuItem>
+                    <DropdownMenuItem>View Provider Profile</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </header>
+
+              <div className="flex-1 overflow-y-auto p-4 bg-slate-50/40">
+                {loadingMessages ? (
+                  <div className="text-sm text-gray-500">Loading messages...</div>
+                ) : messages.length ? (
+                  <div className="space-y-3">
+                    {messages.map((msg) => {
+                      const mine = msg.senderId === myUserId;
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                              mine
+                                ? "bg-blue-600 text-white rounded-br-sm"
+                                : "bg-white text-gray-900 border rounded-bl-sm"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{msg.content}</p>
+                            <p
+                              className={`text-xs mt-1.5 flex items-center gap-1 ${
+                                mine ? "text-blue-200" : "text-gray-500"
+                              }`}
+                            >
+                              {formatTime(msg.createdAt)}
+                              {mine && <CheckCheck className="h-3 w-3" />}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-sm text-gray-500">
+                      No messages yet in this conversation.
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
-              {/* Message Input */}
-              <div className="p-4 border-t">
+              <footer className="p-3 border-t bg-white">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <Textarea
                       placeholder="Type your message..."
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      rows={3}
-                      className="resize-none"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      className="min-h-[54px] max-h-40 resize-y"
                     />
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex gap-2">
-                        <Button type="button" variant="ghost" size="icon">
-                          <Paperclip size={18} />
-                        </Button>
-                        <Button type="button" variant="ghost" size="icon">
-                          <Image size={18} />
-                        </Button>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Press Enter to send, Shift+Enter for new line
-                      </div>
-                    </div>
                   </div>
-                  <Button
-                    onClick={sendMessage}
-                    disabled={!message.trim()}
-                    className="h-12"
-                  >
-                    <Send size={18} />
+                  <Button onClick={sendMessage} disabled={!newMessage.trim() || sending}>
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">15 min</div>
-            <div className="text-sm text-gray-600">Avg. response time</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">24/7</div>
-            <div className="text-sm text-gray-600">Platform support</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">Secure</div>
-            <div className="text-sm text-gray-600">End-to-end encrypted</div>
-          </CardContent>
-        </Card>
+              </footer>
+            </>
+          ) : (
+            <div className="flex-1 grid place-items-center bg-slate-50/40">
+              <Card className="w-full max-w-md">
+                <CardContent className="p-6 text-center">
+                  <p className="font-medium">No conversation selected</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Open a job conversation to start messaging providers.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

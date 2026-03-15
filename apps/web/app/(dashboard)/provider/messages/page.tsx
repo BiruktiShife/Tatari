@@ -1,265 +1,435 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Search,
-  MessageSquare,
   User,
-  Clock,
   Send,
-  Paperclip,
-  Smile,
   MoreVertical,
-  Check,
   CheckCheck,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Card, CardContent } from "@/components/ui/card";
 
-const conversations = [
-  {
-    id: "1",
-    name: "John Doe",
-    lastMessage: "Thanks for fixing the sink!",
-    time: "10:30 AM",
-    unread: 0,
-    job: "Fix Kitchen Sink Leak",
-    avatar: "JD",
-  },
-  {
-    id: "2",
-    name: "Sarah Smith",
-    lastMessage: "When can you start the painting?",
-    time: "Yesterday",
-    unread: 3,
-    job: "Paint Living Room Walls",
-    avatar: "SS",
-  },
-  {
-    id: "3",
-    name: "Mike Johnson",
-    lastMessage: "I've sent the quote, please review",
-    time: "2 days ago",
-    unread: 0,
-    job: "Electrical Wiring",
-    avatar: "MJ",
-  },
-];
+type Conversation = {
+  key: string;
+  otherUserId: string;
+  otherUserName: string;
+  jobId: string;
+  jobTitle: string;
+  lastMessage: string;
+  lastMessageAt: string;
+};
 
-const messages = [
-  {
-    id: "1",
-    sender: "client",
-    text: "Hi Samuel, when can you start the painting job?",
-    time: "10:00 AM",
-  },
-  {
-    id: "2",
-    sender: "me",
-    text: "Hi Sarah! I can start tomorrow at 10 AM.",
-    time: "10:05 AM",
-  },
-  {
-    id: "3",
-    sender: "client",
-    text: "Perfect! What's your quote for the living room walls?",
-    time: "10:10 AM",
-  },
-  {
-    id: "4",
-    sender: "me",
-    text: "For a standard living room, it would be ₵ 1,200 including materials.",
-    time: "10:15 AM",
-  },
-  {
-    id: "5",
-    sender: "client",
-    text: "That sounds reasonable. Let's proceed!",
-    time: "10:20 AM",
-  },
-];
+type MessageItem = {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  createdAt: string;
+};
+
+type JobDetail = {
+  id: string;
+  title: string;
+  client?: { name?: string | null };
+};
+
+type SelectedConversation = {
+  jobId: string;
+  otherUserId?: string;
+  otherUserName: string;
+  jobTitle: string;
+};
+
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
+      throw err;
+    }
+  }
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+  return path;
+}
+
+function formatTime(dateStr: string) {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export default function ProviderMessagesPage() {
-  const [selectedConversation, setSelectedConversation] = useState("2");
+  const searchParams = useSearchParams();
+  const [myUserId, setMyUserId] = useState("");
+  const [search, setSearch] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selected, setSelected] = useState<SelectedConversation | null>(null);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      // Send message logic
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const loadConversations = async () => {
+    if (!token) return;
+    setLoadingConversations(true);
+    try {
+      const res = await fetch(resolveApiUrl("/messages/conversations"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        setConversations([]);
+        return;
+      }
+      const data = await res.json();
+      setConversations(Array.isArray(data) ? data : []);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  const loadMessages = async (target: SelectedConversation) => {
+    if (!token) return;
+    setLoadingMessages(true);
+    try {
+      const query = target.otherUserId
+        ? `?otherUserId=${encodeURIComponent(target.otherUserId)}`
+        : "";
+      const res = await fetch(
+        resolveApiUrl(`/messages/job/${target.jobId}${query}`),
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) {
+        setMessages([]);
+        return;
+      }
+      const data = await res.json();
+      setMessages(Array.isArray(data) ? data : []);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.id) setMyUserId(parsed.id);
+      } catch {
+        // ignore parse errors
+      }
+    }
+    loadConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const jobId = searchParams.get("job");
+    if (!jobId) return;
+
+    const existing = conversations.find((c) => c.jobId === jobId);
+    if (existing) {
+      setSelected({
+        jobId: existing.jobId,
+        otherUserId: existing.otherUserId,
+        otherUserName: existing.otherUserName,
+        jobTitle: existing.jobTitle,
+      });
+      return;
+    }
+
+    const loadJobForDraft = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(resolveApiUrl(`/jobs/provider/${jobId}`), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const job: JobDetail = await res.json();
+        setSelected({
+          jobId: job.id,
+          otherUserName: job.client?.name || "Client",
+          jobTitle: job.title || "Job",
+        });
+      } catch {
+        // ignore
+      }
+    };
+    loadJobForDraft();
+  }, [conversations, searchParams, token]);
+
+  useEffect(() => {
+    if (!selected) return;
+    loadMessages(selected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.jobId, selected?.otherUserId]);
+
+  const filteredConversations = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter((c) =>
+      [c.otherUserName, c.jobTitle, c.lastMessage]
+        .filter(Boolean)
+        .some((v) => v.toLowerCase().includes(q)),
+    );
+  }, [conversations, search]);
+
+  const handleSelectConversation = (conv: Conversation) => {
+    setSelected({
+      jobId: conv.jobId,
+      otherUserId: conv.otherUserId,
+      otherUserName: conv.otherUserName,
+      jobTitle: conv.jobTitle,
+    });
+  };
+
+  const handleSendMessage = async () => {
+    const content = newMessage.trim();
+    if (!content || !selected || !token) return;
+
+    setSending(true);
+    try {
+      const res = await fetch(resolveApiUrl("/messages"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jobId: selected.jobId,
+          receiverId: selected.otherUserId,
+          content,
+        }),
+      });
+
+      if (!res.ok) return;
+
       setNewMessage("");
+      await loadMessages(selected);
+      await loadConversations();
+    } finally {
+      setSending(false);
     }
   };
 
   return (
-    <div className="h-[calc(100vh-200px)] flex flex-col">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Messages</h1>
-        <p className="text-gray-600 mt-2">Communicate with your clients</p>
+    <div className="space-y-5">
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-5 sm:p-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
+          <Sparkles className="h-4 w-4" />
+          Client Communication
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Messages</h1>
+        <p className="text-slate-200 mt-1">
+          Coordinate with clients and close job details faster.
+        </p>
       </div>
 
-      <div className="flex-1 flex border rounded-lg overflow-hidden">
-        {/* Conversations Sidebar */}
-        <div className="w-full md:w-80 border-r">
-          <div className="p-4 border-b">
+      <div className="h-[calc(100vh-280px)] min-h-[520px] flex border rounded-xl overflow-hidden bg-white">
+        <aside className="w-full md:w-80 border-r bg-slate-50/60">
+          <div className="p-3 border-b bg-white">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input placeholder="Search conversations..." className="pl-10" />
+              <Input
+                placeholder="Search conversations..."
+                className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
-          <div className="overflow-y-auto h-[calc(100vh-300px)]">
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedConversation === conv.id ? "bg-blue-50" : ""
-                }`}
-                onClick={() => setSelectedConversation(conv.id)}
-              >
-                <div className="flex items-start gap-3">
+
+          <div className="overflow-y-auto h-[calc(100vh-355px)]">
+            {loadingConversations ? (
+              <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
+            ) : filteredConversations.length ? (
+              filteredConversations.map((conv) => (
+                <button
+                  key={conv.key}
+                  className={`w-full text-left p-3 border-b hover:bg-white transition-colors ${
+                    selected?.jobId === conv.jobId &&
+                    selected?.otherUserId === conv.otherUserId
+                      ? "bg-white"
+                      : ""
+                  }`}
+                  onClick={() => handleSelectConversation(conv)}
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-blue-100 text-blue-700">
+                        {getInitials(conv.otherUserName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium truncate">{conv.otherUserName}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatTime(conv.lastMessageAt)}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 truncate mt-1">
+                        {conv.lastMessage}
+                      </p>
+                      <Badge variant="outline" className="mt-2 text-xs">
+                        {conv.jobTitle}
+                      </Badge>
+                    </div>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="p-4 text-sm text-gray-500">No conversations yet</div>
+            )}
+          </div>
+        </aside>
+
+        <section className="flex-1 flex flex-col">
+          {selected ? (
+            <>
+              <header className="p-4 border-b flex items-center justify-between bg-white">
+                <div className="flex items-center gap-3 min-w-0">
                   <Avatar>
-                    <AvatarFallback className="bg-blue-100 text-blue-600">
-                      {conv.avatar}
+                    <AvatarFallback className="bg-emerald-100 text-emerald-700">
+                      {getInitials(selected.otherUserName)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium truncate">{conv.name}</div>
-                      <div className="text-xs text-gray-500">{conv.time}</div>
-                    </div>
-                    <div className="text-sm text-gray-600 truncate mt-1">
-                      {conv.lastMessage}
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        {conv.job}
-                      </Badge>
-                      {conv.unread > 0 && (
-                        <Badge className="bg-blue-600 text-white">
-                          {conv.unread}
-                        </Badge>
-                      )}
-                    </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{selected.otherUserName}</div>
+                    <div className="text-sm text-gray-500 truncate">{selected.jobTitle}</div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Chat Header */}
-          <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar>
-                <AvatarFallback className="bg-green-100 text-green-600">
-                  SS
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="font-semibold">Sarah Smith</div>
-                <div className="text-sm text-gray-500">
-                  Paint Living Room Walls • Online
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <User className="h-4 w-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <div className="flex items-center gap-2">
                   <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-4 w-4" />
+                    <User className="h-4 w-4" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>View Job Details</DropdownMenuItem>
-                  <DropdownMenuItem>Mark as Unread</DropdownMenuItem>
-                  <DropdownMenuItem className="text-red-600">
-                    Delete Conversation
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 p-4 overflow-y-auto">
-            <div className="space-y-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-lg p-3 ${
-                      msg.sender === "me"
-                        ? "bg-blue-600 text-white rounded-br-none"
-                        : "bg-gray-100 text-gray-900 rounded-bl-none"
-                    }`}
-                  >
-                    <div>{msg.text}</div>
-                    <div
-                      className={`text-xs mt-1 flex items-center gap-1 ${
-                        msg.sender === "me" ? "text-blue-200" : "text-gray-500"
-                      }`}
-                    >
-                      {msg.time}
-                      {msg.sender === "me" && (
-                        <CheckCheck className="h-3 w-3" />
-                      )}
-                    </div>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/provider/jobs/${selected.jobId}`}>View Job Details</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              ))}
-            </div>
-          </div>
+              </header>
 
-          {/* Message Input */}
-          <div className="p-4 border-t">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Paperclip className="h-4 w-4" />
-              </Button>
-              <div className="flex-1 relative">
-                <Textarea
-                  placeholder="Type your message..."
-                  className="min-h-[60px] pr-12"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-2"
-                >
-                  <Smile className="h-4 w-4" />
-                </Button>
+              <div className="flex-1 p-4 overflow-y-auto bg-slate-50/40">
+                {loadingMessages ? (
+                  <div className="text-sm text-gray-500">Loading messages...</div>
+                ) : messages.length ? (
+                  <div className="space-y-3">
+                    {messages.map((msg) => {
+                      const mine = msg.senderId === myUserId;
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                              mine
+                                ? "bg-blue-600 text-white rounded-br-sm"
+                                : "bg-white text-gray-900 border rounded-bl-sm"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{msg.content}</p>
+                            <div
+                              className={`text-xs mt-1.5 flex items-center gap-1 ${
+                                mine ? "text-blue-200" : "text-gray-500"
+                              }`}
+                            >
+                              {formatTime(msg.createdAt)}
+                              {mine && <CheckCheck className="h-3 w-3" />}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-sm text-gray-500">
+                      No messages yet. Start the conversation.
+                    </CardContent>
+                  </Card>
+                )}
               </div>
-              <Button onClick={handleSendMessage}>
-                <Send className="h-4 w-4" />
-              </Button>
+
+              <footer className="p-3 border-t bg-white">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Textarea
+                      placeholder="Type your message..."
+                      className="min-h-[54px] max-h-40 resize-y"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button onClick={handleSendMessage} disabled={sending || !newMessage.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </footer>
+            </>
+          ) : (
+            <div className="flex-1 grid place-items-center bg-slate-50/40">
+              <Card className="w-full max-w-md">
+                <CardContent className="p-6 text-center">
+                  <p className="font-medium">Select a conversation</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Choose a client thread from the left to start messaging.
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        </div>
+          )}
+        </section>
       </div>
     </div>
   );

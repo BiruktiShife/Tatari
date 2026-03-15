@@ -19,7 +19,7 @@ export function DashboardLayout({
       <Header userName={userName} userType={userType} />
       <div className="flex">
         <Sidebar userType={userType} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto md:ml-64">
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>

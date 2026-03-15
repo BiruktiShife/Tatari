@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Search, Menu, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,18 @@ interface HeaderProps {
 }
 
 export function Header({ userName, userType }: HeaderProps) {
+  const router = useRouter();
   const [notifications] = useState(3); // Mock notification count
   const { isMobileSidebarOpen, toggleMobileSidebar } = useSidebar();
+
+  const handleLogout = () => {
+    // clear any stored auth tokens or user info
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      // add other clearance if needed
+    }
+    router.push("/login");
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -54,16 +65,6 @@ export function Header({ userName, userType }: HeaderProps) {
             </div>
             <span className="font-bold text-xl hidden lg:inline">Tatari</span>
             <span className="font-bold text-xl lg:hidden">HSH</span>
-          </div>
-
-          <div className="hidden md:block w-64">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-              <Input
-                placeholder={`Search ${userType === "client" ? "providers" : "jobs"}...`}
-                className="pl-9"
-              />
-            </div>
           </div>
         </div>
 
@@ -148,12 +149,8 @@ export function Header({ userName, userType }: HeaderProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Billing</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600">
+
+              <DropdownMenuItem className="text-red-600" onClick={handleLogout}>
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

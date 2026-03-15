@@ -31,6 +31,28 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
+      throw err;
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+
+  return path;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -162,8 +184,8 @@ export default function RegisterPage() {
     try {
       const endpoint =
         userType === "client"
-          ? "http://localhost:3003/auth/register-client"
-          : "http://localhost:3003/auth/register-provider";
+          ? resolveApiUrl("/auth/register/client")
+          : resolveApiUrl("/auth/register/provider");
 
       const payload =
         userType === "client"

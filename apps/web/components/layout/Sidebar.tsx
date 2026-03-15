@@ -79,11 +79,7 @@ const ADMIN_NAV_ITEMS = [
     icon: DollarSign,
   },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  {
-    href: "/admin/verification",
-    label: "Verification",
-    icon: UserCheck,
-  },
+
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -119,10 +115,10 @@ export function Sidebar({ userType }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r bg-white transition-transform md:relative md:top-0 md:translate-x-0",
+          "fixed top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r bg-white transition-transform md:translate-x-0",
           isMobileSidebarOpen
             ? "translate-x-0"
-            : "-translate-x-full md:translate-x-0"
+            : "-translate-x-full md:translate-x-0",
         )}
       >
         <div className="flex h-full flex-col">
@@ -140,7 +136,7 @@ export function Sidebar({ userType }: SidebarProps) {
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                     isActive
                       ? "bg-primary text-primary-foreground font-medium"
-                      : "text-gray-700 hover:bg-gray-100"
+                      : "text-gray-700 hover:bg-gray-100",
                   )}
                 >
                   <Icon size={18} />

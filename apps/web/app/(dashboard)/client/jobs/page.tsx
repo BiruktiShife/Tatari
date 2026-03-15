@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Search,
   Filter,
-  Calendar,
   MapPin,
   Clock,
   AlertCircle,
+  Sparkles,
+  BriefcaseBusiness,
+  HandCoins,
+  MessageCircleMore,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,367 +26,353 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const mockJobs = {
-  active: [
-    {
-      id: "1",
-      title: "Fix Kitchen Sink Leak",
-      provider: "Samuel Plumbing",
-      status: "in_progress",
-      statusText: "In Progress",
-      price: "₵ 500",
-      location: "Bole, Addis",
-      posted: "2 days ago",
-      timeline: "Urgent",
-      quotes: 3,
-      providerAvatar: "SP",
-    },
-    {
-      id: "2",
-      title: "Paint Living Room Walls",
-      provider: "Dawit Painting",
-      status: "accepted",
-      statusText: "Accepted",
-      price: "₵ 1,200",
-      location: "Kasanchis, Addis",
-      posted: "3 days ago",
-      timeline: "Within Week",
-      quotes: 5,
-      providerAvatar: "DP",
-    },
-  ],
-  pending: [
-    {
-      id: "3",
-      title: "Electrical Wiring for Garage",
-      provider: null,
-      status: "pending",
-      statusText: "Awaiting Quotes",
-      price: "Budget: ₵ 800-1,200",
-      location: "Mexico, Addis",
-      posted: "1 hour ago",
-      timeline: "Flexible",
-      quotes: 2,
-      providerAvatar: null,
-    },
-  ],
-  completed: [
-    {
-      id: "4",
-      title: "AC Installation",
-      provider: "Mike AC Services",
-      status: "completed",
-      statusText: "Completed",
-      price: "₵ 3,500",
-      location: "Bole, Addis",
-      posted: "1 week ago",
-      timeline: "Urgent",
-      quotes: 4,
-      providerAvatar: "MA",
-      rating: 5,
-      review: "Excellent work! Very professional.",
-    },
-    {
-      id: "5",
-      title: "Furniture Assembly",
-      provider: "Home Setup Pros",
-      status: "completed",
-      statusText: "Completed",
-      price: "₵ 750",
-      location: "Piassa, Addis",
-      posted: "2 weeks ago",
-      timeline: "Within Week",
-      quotes: 3,
-      providerAvatar: "HS",
-      rating: 4,
-      review: "Good job, slightly delayed but good quality.",
-    },
-  ],
+type JobItem = {
+  id: string;
+  title: string;
+  category?: string;
+  status?: string;
+  budgetType?: "FIXED" | "HOURLY" | "RANGE" | string;
+  budgetAmount?: number | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  location?: string;
+  quotesCount?: number;
+  timeline?: string;
+  createdAt?: string;
 };
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  accepted: "bg-blue-100 text-blue-800",
+  pending: "bg-amber-100 text-amber-800",
+  active: "bg-blue-100 text-blue-800",
+  accepted: "bg-indigo-100 text-indigo-800",
   in_progress: "bg-purple-100 text-purple-800",
-  completed: "bg-green-100 text-green-800",
+  completed: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
+  expired: "bg-gray-100 text-gray-700",
 };
+
+function resolveJobsUrl() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}/jobs`;
+    } catch (e) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}/jobs`;
+      throw e;
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003/jobs`
+      : `${origin}/jobs`;
+  }
+  return `/jobs`;
+}
+
+function formatPostedAgo(createdAt?: string) {
+  if (!createdAt) return "Recently";
+  const postedAt = new Date(createdAt).getTime();
+  if (Number.isNaN(postedAt)) return "Recently";
+
+  const mins = Math.max(1, Math.floor((Date.now() - postedAt) / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+}
+
+function formatBudget(job: JobItem) {
+  if (job.budgetType === "RANGE") return `₵ ${job.budgetMin ?? 0} - ${job.budgetMax ?? 0}`;
+  if (job.budgetAmount != null) {
+    return job.budgetType === "HOURLY"
+      ? `₵ ${job.budgetAmount}/hr`
+      : `₵ ${job.budgetAmount}`;
+  }
+  return "Budget not set";
+}
+
+function statusLabel(status?: string) {
+  const key = (status || "PENDING").toUpperCase();
+  if (key === "IN_PROGRESS") return "In Progress";
+  if (key === "PENDING") return "Pending";
+  if (key === "ACCEPTED") return "Accepted";
+  if (key === "COMPLETED") return "Completed";
+  if (key === "ACTIVE") return "Active";
+  if (key === "CANCELLED") return "Cancelled";
+  if (key === "EXPIRED") return "Expired";
+  return key.charAt(0) + key.slice(1).toLowerCase();
+}
 
 export default function MyJobsPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const res = await fetch(resolveJobsUrl(), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        if (!res.ok) {
+          console.error("Failed to fetch jobs", await res.text());
+          setJobs([]);
+          return;
+        }
+
+        const data = await res.json();
+        setJobs(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching jobs", err);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
+
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      const q = searchQuery.trim().toLowerCase();
+      const matchesQuery = !q
+        ? true
+        : [job.title, job.location, job.category]
+            .filter(Boolean)
+            .some((val) => String(val).toLowerCase().includes(q));
+
+      const jobStatus = (job.status || "").toLowerCase();
+      const matchesStatus =
+        statusFilter === "all" ? true : jobStatus === statusFilter;
+
+      return matchesQuery && matchesStatus;
+    });
+  }, [jobs, searchQuery, statusFilter]);
+
+  const activeJobs = filteredJobs.filter(
+    (j) => !["completed", "cancelled", "expired"].includes((j.status || "").toLowerCase()),
+  );
+  const pendingJobs = filteredJobs.filter(
+    (j) => (j.status || "").toLowerCase() === "pending",
+  );
+  const completedJobs = filteredJobs.filter(
+    (j) => (j.status || "").toLowerCase() === "completed",
+  );
+
+  const stats = useMemo(() => {
+    const active = jobs.filter(
+      (j) => !["COMPLETED", "CANCELLED", "EXPIRED"].includes((j.status || "").toUpperCase()),
+    ).length;
+    const quotes = jobs.reduce((sum, j) => sum + (j.quotesCount || 0), 0);
+    const budget = jobs.reduce((sum, j) => {
+      if (j.budgetAmount != null) return sum + j.budgetAmount;
+      if (j.budgetMax != null) return sum + j.budgetMax;
+      if (j.budgetMin != null) return sum + j.budgetMin;
+      return sum;
+    }, 0);
+    return { active, quotes, budget, total: jobs.length };
+  }, [jobs]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">My Jobs</h1>
-          <p className="text-gray-600 mt-2">
-            Track all your posted jobs and quotes
-          </p>
+    <div className="space-y-6 text-gray-900">
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
+          <Sparkles className="h-4 w-4" />
+          Client Jobs Hub
         </div>
-        <Button asChild>
-          <Link href="/dashboard/client/post-job">Post New Job</Link>
-        </Button>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search jobs by title, provider, or location..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Awaiting Quotes</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline">
-            <Calendar className="h-4 w-4 mr-2" />
-            Date
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">My Jobs</h1>
+            <p className="text-slate-200 mt-2">
+              Track your job requests, quotes, and progress in one place.
+            </p>
+          </div>
+          <Button asChild variant="secondary" className="text-slate-900">
+            <Link href="/client/post-job">Post New Job</Link>
           </Button>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">3</div>
-            <div className="text-sm text-gray-600">Active Jobs</div>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Active Jobs</p>
+              <BriefcaseBusiness className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">{stats.active}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">₵ 1,700</div>
-            <div className="text-sm text-gray-600">Pending Payments</div>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Total Jobs</p>
+              <AlertCircle className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">{stats.total}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">5</div>
-            <div className="text-sm text-gray-600">Total Quotes</div>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Quotes Received</p>
+              <MessageCircleMore className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">{stats.quotes}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">4.8</div>
-            <div className="text-sm text-gray-600">Avg. Rating</div>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Visible Budget</p>
+              <HandCoins className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">₵ {Math.round(stats.budget)}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Jobs Tabs */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search jobs by title, location, or category..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-[200px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="accepted">Accepted</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-8">
-          <TabsTrigger value="active">
-            Active Jobs ({mockJobs.active.length})
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            Pending Quotes ({mockJobs.pending.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Completed ({mockJobs.completed.length})
-          </TabsTrigger>
+        <TabsList className="grid grid-cols-3 mb-5">
+          <TabsTrigger value="active">Active ({activeJobs.length})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({pendingJobs.length})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({completedJobs.length})</TabsTrigger>
         </TabsList>
 
-        {/* Active Jobs Tab */}
         <TabsContent value="active" className="space-y-4">
-          {mockJobs.active.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
+          {loading ? (
+            <div className="text-sm text-gray-500">Loading jobs...</div>
+          ) : activeJobs.length ? (
+            activeJobs.map((job) => <JobCard key={job.id} job={job} />)
+          ) : (
+            <EmptyState message="No active jobs found." />
+          )}
         </TabsContent>
 
-        {/* Pending Quotes Tab */}
         <TabsContent value="pending" className="space-y-4">
-          {mockJobs.pending.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
+          {pendingJobs.length ? (
+            pendingJobs.map((job) => <JobCard key={job.id} job={job} />)
+          ) : (
+            <EmptyState message="No pending jobs right now." />
+          )}
         </TabsContent>
 
-        {/* Completed Jobs Tab */}
         <TabsContent value="completed" className="space-y-4">
-          {mockJobs.completed.map((job) => (
-            <div key={job.id} className="border rounded-lg p-6">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xl font-semibold">{job.title}</h3>
-                        <Badge className={statusColors[job.status]}>
-                          {job.statusText}
-                        </Badge>
-                      </div>
-                      {job.provider && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-600">
-                              {job.providerAvatar}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-medium">{job.provider}</div>
-                            {job.rating && (
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
-                                {"★".repeat(job.rating)}
-                                {"☆".repeat(5 - job.rating)}
-                                <span>({job.rating}/5)</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold">{job.price}</div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPin size={16} />
-                      <span>{job.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Clock size={16} />
-                      <span>Posted {job.posted}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <AlertCircle size={16} />
-                      <span>{job.timeline}</span>
-                    </div>
-                  </div>
-
-                  {job.review && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="font-medium mb-1">Your Review:</div>
-                      <p className="text-gray-600">{job.review}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2 lg:w-48">
-                  <Button variant="outline" asChild>
-                    <Link href={`/dashboard/client/jobs/${job.id}`}>
-                      View Details
-                    </Link>
-                  </Button>
-                  {job.status === "completed" && (
-                    <Button
-                      variant="outline"
-                      className="text-green-600 border-green-200"
-                    >
-                      Download Invoice
-                    </Button>
-                  )}
-                  {job.status === "in_progress" && (
-                    <Button asChild>
-                      <Link href={`/dashboard/client/messages?job=${job.id}`}>
-                        Message Provider
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+          {completedJobs.length ? (
+            completedJobs.map((job) => <JobCard key={job.id} job={job} />)
+          ) : (
+            <EmptyState message="No completed jobs yet." />
+          )}
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-// Job Card Component
-function JobCard({ job }: { job: any }) {
+function EmptyState({ message }: { message: string }) {
   return (
-    <div className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-start justify-between">
-            <div>
+    <Card>
+      <CardContent className="py-10 text-center text-sm text-gray-500">
+        {message}
+      </CardContent>
+    </Card>
+  );
+}
+
+function JobCard({ job }: { job: JobItem }) {
+  const statusKey = (job.status || "pending").toLowerCase();
+  const badgeStyle = statusColors[statusKey] || "bg-gray-100 text-gray-700";
+
+  return (
+    <Card className="border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all">
+      <CardContent className="p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-semibold">{job.title}</h3>
+              <Badge className={badgeStyle}>{statusLabel(job.status)}</Badge>
+              {job.category && <Badge variant="outline">{job.category}</Badge>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm text-gray-600">
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-semibold">{job.title}</h3>
-                <Badge className={statusColors[job.status]}>
-                  {job.statusText}
-                </Badge>
+                <MapPin size={15} />
+                <span>{job.location || "Location not provided"}</span>
               </div>
-              {job.provider && (
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <span className="text-sm font-medium text-blue-600">
-                      {job.providerAvatar}
-                    </span>
-                  </div>
-                  <div className="font-medium">{job.provider}</div>
-                </div>
+              <div className="flex items-center gap-2">
+                <Clock size={15} />
+                <span>Posted {formatPostedAgo(job.createdAt)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AlertCircle size={15} />
+                <span>{job.timeline || "Flexible timeline"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:items-end gap-3">
+            <div className="text-xl font-bold text-slate-900">{formatBudget(job)}</div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/client/jobs/${job.id}`}>View Details</Link>
+              </Button>
+              {statusKey === "pending" && (
+                <Button size="sm" asChild>
+                  <Link href={`/client/jobs/${job.id}/quotes`}>
+                    View Quotes ({job.quotesCount || 0})
+                  </Link>
+                </Button>
+              )}
+              {statusKey === "in_progress" && (
+                <Button size="sm" asChild>
+                  <Link href={`/client/messages?job=${job.id}`}>Message Provider</Link>
+                </Button>
               )}
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold">{job.price}</div>
-              <div className="text-sm text-gray-500">{job.quotes} quotes</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="flex items-center gap-2 text-gray-600">
-              <MapPin size={16} />
-              <span>{job.location}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Clock size={16} />
-              <span>Posted {job.posted}</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <AlertCircle size={16} />
-              <span>{job.timeline}</span>
-            </div>
           </div>
         </div>
-
-        <div className="flex flex-col gap-2 lg:w-48">
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/client/jobs/${job.id}`}>View Details</Link>
-          </Button>
-          {job.status === "pending" && (
-            <Button asChild>
-              <Link href={`/dashboard/client/jobs/${job.id}/quotes`}>
-                View Quotes ({job.quotes})
-              </Link>
-            </Button>
-          )}
-          {job.status === "in_progress" && (
-            <Button asChild>
-              <Link href={`/dashboard/client/messages?job=${job.id}`}>
-                Message Provider
-              </Link>
-            </Button>
-          )}
-          {job.status === "accepted" && (
-            <Button
-              variant="outline"
-              className="border-green-200 text-green-700"
-            >
-              Make Payment
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

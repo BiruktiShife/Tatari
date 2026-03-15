@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Filter,
@@ -10,12 +10,11 @@ import {
   DollarSign,
   User,
   AlertCircle,
-  Star,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -26,234 +25,344 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 
-const availableJobs = [
-  {
-    id: "1",
-    title: "Electrical Wiring for Garage",
-    client: "Mike Johnson",
-    budget: "₵ 800-1,200",
-    location: "Mexico, Addis",
-    posted: "1 hour ago",
-    timeline: "Within Week",
-    category: "Electrical",
-    quotes: 2,
-    urgent: true,
-    distance: "2.5 km",
-  },
-  {
-    id: "2",
-    title: "Paint Living Room Walls",
-    client: "Sarah Smith",
-    budget: "₵ 1,000-1,500",
-    location: "Kasanchis, Addis",
-    posted: "3 hours ago",
-    timeline: "Flexible",
-    category: "Painting",
-    quotes: 5,
-    urgent: false,
-    distance: "3.2 km",
-  },
-  {
-    id: "3",
-    title: "Fix Leaking Toilet",
-    client: "Emma Wilson",
-    budget: "₵ 300-500",
-    location: "Bole, Addis",
-    posted: "5 hours ago",
-    timeline: "Urgent",
-    category: "Plumbing",
-    quotes: 3,
-    urgent: true,
-    distance: "1.8 km",
-  },
-];
+type JobItem = {
+  id: string;
+  title: string;
+  category?: string;
+  status?: "PENDING" | "ACTIVE" | string;
+  timeline?: "URGENT" | "WITHIN_WEEK" | "FLEXIBLE" | string;
+  budgetType?: "FIXED" | "HOURLY" | "RANGE" | string;
+  budgetAmount?: number | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  location?: string;
+  quotesCount?: number;
+  createdAt?: string;
+  client?: { name?: string | null };
+};
 
-const categories = [
-  "All Categories",
-  "Plumbing",
-  "Electrical",
-  "Painting",
-  "Cleaning",
-  "HVAC",
-  "Carpentry",
-  "Masonry",
-];
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
+      throw err;
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+
+  return path;
+}
+
+function formatPostedAgo(createdAt?: string) {
+  if (!createdAt) return "Recently";
+  const posted = new Date(createdAt).getTime();
+  if (Number.isNaN(posted)) return "Recently";
+
+  const mins = Math.max(1, Math.floor((Date.now() - posted) / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+}
+
+function formatBudget(job: JobItem) {
+  if (job.budgetType === "RANGE") {
+    return `₵ ${job.budgetMin ?? 0} - ${job.budgetMax ?? 0}`;
+  }
+  if (job.budgetAmount != null) {
+    return job.budgetType === "HOURLY"
+      ? `₵ ${job.budgetAmount}/hr`
+      : `₵ ${job.budgetAmount}`;
+  }
+  return "Budget not specified";
+}
+
+function timelineLabel(timeline?: string) {
+  if (timeline === "URGENT") return "Urgent";
+  if (timeline === "WITHIN_WEEK") return "Within Week";
+  return "Flexible";
+}
 
 export default function ProviderJobsPage() {
+  const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        if (!token) {
+          setJobs([]);
+          setError("Missing auth token. Please log in again.");
+          setLoading(false);
+          return;
+        }
+        const res = await fetch(resolveApiUrl("/jobs/provider/available"), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          setJobs([]);
+          setError(text || "Failed to fetch available jobs.");
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        setJobs(Array.isArray(data) ? data : []);
+      } catch {
+        setJobs([]);
+        setError("Failed to fetch available jobs.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
+
+  const categories = useMemo(() => {
+    const fromData = Array.from(
+      new Set(jobs.map((j) => j.category).filter(Boolean) as string[]),
+    ).sort((a, b) => a.localeCompare(b));
+    return ["all", ...fromData];
+  }, [jobs]);
+
+  const filteredJobs = useMemo(() => {
+    let list = [...jobs];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((job) =>
+        [job.title, job.location, job.category, job.client?.name]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(q)),
+      );
+    }
+
+    if (selectedCategory !== "all") {
+      list = list.filter((job) => job.category === selectedCategory);
+    }
+
+    list.sort((a, b) => {
+      if (sortBy === "budget") {
+        const aBudget = a.budgetAmount ?? a.budgetMax ?? a.budgetMin ?? 0;
+        const bBudget = b.budgetAmount ?? b.budgetMax ?? b.budgetMin ?? 0;
+        return bBudget - aBudget;
+      }
+      if (sortBy === "urgent") {
+        const aUrgent = a.timeline === "URGENT" ? 1 : 0;
+        const bUrgent = b.timeline === "URGENT" ? 1 : 0;
+        return bUrgent - aUrgent;
+      }
+      return (
+        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      );
+    });
+
+    return list;
+  }, [jobs, searchQuery, selectedCategory, sortBy]);
+
+  const stats = useMemo(() => {
+    const urgent = jobs.filter((j) => j.timeline === "URGENT").length;
+    const totalBudget = jobs.reduce((sum, job) => {
+      if (job.budgetAmount != null) return sum + job.budgetAmount;
+      if (job.budgetMax != null) return sum + job.budgetMax;
+      if (job.budgetMin != null) return sum + job.budgetMin;
+      return sum;
+    }, 0);
+    return {
+      total: jobs.length,
+      urgent,
+      totalBudget,
+    };
+  }, [jobs]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Available Jobs</h1>
-          <p className="text-gray-600 mt-2">
-            Find new opportunities that match your skills
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/provider/my-jobs">View My Jobs</Link>
-        </Button>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search jobs by title, location, or category..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="budget">Highest Budget</SelectItem>
-              <SelectItem value="distance">Nearest First</SelectItem>
-              <SelectItem value="urgent">Urgent Jobs</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-[180px]">
-              <Briefcase className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Category Filters */}
-      <div className="flex flex-wrap gap-2">
-        {categories.map((cat) => (
-          <Button
-            key={cat}
-            variant={selectedCategory === cat ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory(cat)}
-          >
-            {cat}
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
+              <Sparkles className="h-4 w-4" />
+              Provider Marketplace
+            </div>
+            <h1 className="text-3xl font-bold">Available Jobs</h1>
+            <p className="text-slate-200 mt-2">
+              Browse and respond to current opportunities on the platform.
+            </p>
+          </div>
+          <Button asChild variant="secondary" className="text-slate-900">
+            <Link href="/provider/my-jobs">View My Jobs</Link>
           </Button>
-        ))}
+        </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold">42</div>
-              <div className="text-sm text-gray-600">Jobs Available</div>
-            </div>
+            <div className="text-sm text-gray-500">Jobs Available</div>
+            <div className="text-2xl font-bold mt-1">{stats.total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold">12</div>
-              <div className="text-sm text-gray-600">Urgent Jobs</div>
-            </div>
+            <div className="text-sm text-gray-500">Urgent Jobs</div>
+            <div className="text-2xl font-bold mt-1">{stats.urgent}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold">₵ 45,200</div>
-              <div className="text-sm text-gray-600">Total Budget</div>
-            </div>
+            <div className="text-sm text-gray-500">Total Visible Budget</div>
+            <div className="text-2xl font-bold mt-1">₵ {stats.totalBudget}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Jobs Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {availableJobs.map((job) => (
-          <Card key={job.id} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-semibold">{job.title}</h3>
-                    {job.urgent && (
-                      <Badge className="bg-red-100 text-red-800">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Urgent
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">Client: {job.client}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">
-                    {job.budget}
-                  </div>
-                  <Badge variant="outline">{job.category}</Badge>
-                </div>
-              </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by title, location, category, client..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[170px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="budget">Highest Budget</SelectItem>
+                  <SelectItem value="urgent">Urgent First</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[190px]">
+                  <Briefcase className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat === "all" ? "All Categories" : cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <MapPin size={16} />
-                  <div>
-                    <div>{job.location}</div>
-                    <div className="text-sm text-blue-600">
-                      {job.distance} away
+      {loading ? (
+        <div className="text-sm text-gray-500">Loading available jobs...</div>
+      ) : error ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-gray-600">{error}</p>
+          </CardContent>
+        </Card>
+      ) : filteredJobs.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-gray-600">No available jobs match your filters.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {filteredJobs.map((job) => {
+            const urgent = job.timeline === "URGENT";
+            return (
+              <Card
+                key={job.id}
+                className="group border-slate-200 hover:border-slate-300 hover:shadow-md transition-all"
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-lg font-semibold text-slate-900 group-hover:text-slate-700">
+                          {job.title}
+                        </h3>
+                        {urgent && (
+                          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Urgent
+                          </Badge>
+                        )}
+                        <Badge variant="outline">{job.category || "General"}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                        <User className="h-4 w-4" />
+                        <span>{job.client?.name || "Client"}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">Budget</p>
+                      <p className="text-xl font-bold text-emerald-700">
+                        {formatBudget(job)}
+                      </p>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock size={16} />
-                  <div>
-                    <div>Posted {job.posted}</div>
-                    <div className="text-sm">{job.timeline}</div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm">
+                    <div className="flex items-start gap-2 text-gray-600">
+                      <MapPin className="h-4 w-4 mt-0.5" />
+                      <span>{job.location || "Location not specified"}</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-gray-600">
+                      <Clock className="h-4 w-4 mt-0.5" />
+                      <span>
+                        Posted {formatPostedAgo(job.createdAt)} |{" "}
+                        {timelineLabel(job.timeline)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DollarSign size={16} className="text-gray-400" />
-                  <span className="text-gray-600">
-                    {job.quotes} quotes submitted
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Save
-                  </Button>
-                  <Button size="sm" asChild>
-                    <Link href={`/provider/jobs/${job.id}`}>Submit Quote</Link>
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-center">
-        <Button variant="outline">Load More Jobs</Button>
-      </div>
+                  <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <DollarSign className="h-4 w-4" />
+                      <span>{job.quotesCount || 0} quotes submitted</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline">
+                        Save
+                      </Button>
+                      <Button size="sm" asChild>
+                        <Link href={`/provider/jobs/${job.id}`}>Submit Quote</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

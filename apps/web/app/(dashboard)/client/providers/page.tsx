@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import Link from "next/link";
+import React, { useEffect, useState } from "react";
 import {
   Search,
   Filter,
   Star,
   MapPin,
   CheckCircle,
-  Award,
   Clock,
+  Sparkles,
+  Users,
+  BriefcaseBusiness,
+  HandCoins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,189 +28,289 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const providers = [
-  {
-    id: "1",
-    name: "Samuel Plumbing Co.",
-    rating: 4.9,
-    reviews: 247,
-    category: "Plumbing",
-    hourlyRate: "₵ 300-500",
-    location: "Bole, Addis Ababa",
-    distance: "2.3 km",
-    verified: true,
-    completedJobs: 189,
-    responseTime: "15 min",
-    badges: ["Top Rated", "Fast Responder"],
-    description:
-      "Expert plumber with 10+ years experience. Specialized in leaks, installations, and repairs.",
-    availability: "Available Now",
-  },
-  {
-    id: "2",
-    name: "Dawit Electrical Services",
-    rating: 4.8,
-    reviews: 182,
-    category: "Electrical",
-    hourlyRate: "₵ 350-600",
-    location: "Kasanchis, Addis",
-    distance: "4.1 km",
-    verified: true,
-    completedJobs: 124,
-    responseTime: "25 min",
-    badges: ["Verified Pro"],
-    description:
-      "Certified electrician for residential and commercial projects. 24/7 emergency service.",
-    availability: "Available Today",
-  },
-  {
-    id: "3",
-    name: "Marta Graphic Design",
-    rating: 5.0,
-    reviews: 89,
-    category: "Digital Services",
-    hourlyRate: "₵ 200-400",
-    location: "Mexico, Addis",
-    distance: "5.2 km",
-    verified: true,
-    completedJobs: 67,
-    responseTime: "1 hour",
-    badges: ["Top Rated"],
-    description:
-      "Professional graphic designer specializing in logos, branding, and social media content.",
-    availability: "Available",
-  },
-  {
-    id: "4",
-    name: "Home Clean Experts",
-    rating: 4.7,
-    reviews: 156,
-    category: "Cleaning",
-    hourlyRate: "₵ 150-250",
-    location: "Piassa, Addis",
-    distance: "3.8 km",
-    verified: true,
-    completedJobs: 98,
-    responseTime: "45 min",
-    badges: [],
-    description:
-      "Deep cleaning, move-in/move-out cleaning, and regular maintenance.",
-    availability: "Available Tomorrow",
-  },
-  {
-    id: "5",
-    name: "Mike AC Repair",
-    rating: 4.6,
-    reviews: 112,
-    category: "Appliance Repair",
-    hourlyRate: "₵ 400-700",
-    location: "Bole, Addis",
-    distance: "1.5 km",
-    verified: false,
-    completedJobs: 78,
-    responseTime: "30 min",
-    badges: [],
-    description:
-      "AC installation, repair, and maintenance. All brands supported.",
-    availability: "Available Now",
-  },
-];
+type Provider = {
+  id: string;
+  name: string;
+  rating: number;
+  reviews: number;
+  category: string;
+  hourlyMin: number;
+  hourlyMax: number;
+  location: string;
+  distance: number;
+  verified: boolean;
+  completedJobs: number;
+  responseTime: string;
+  badges: string[];
+  description: string;
+  availability: "Available Now" | "Available Today" | "Available Tomorrow";
+};
 
-const categories = [
-  "All Categories",
-  "Plumbing",
-  "Electrical",
-  "Cleaning",
-  "Painting",
-  "Appliance Repair",
-  "Carpentry",
-  "Digital Services",
-  "Tutoring",
-];
+type ProvidersResponse = {
+  providers: Provider[];
+  categories: string[];
+  stats: {
+    total: number;
+    verified: number;
+    avgRating: number;
+    avgRate: number;
+  };
+};
+
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
+      throw err;
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+
+  return path;
+}
 
 export default function FindProvidersPage() {
+  const { toast } = useToast();
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [categories, setCategories] = useState<string[]>(["all"]);
+  const [stats, setStats] = useState({
+    total: 0,
+    verified: 0,
+    avgRating: 0,
+    avgRate: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("rating");
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [filters, setFilters] = useState({
     verifiedOnly: true,
     availableNow: false,
     minRating: 0,
   });
+  const [savedProviderIds, setSavedProviderIds] = useState<string[]>([]);
+  const [profileProvider, setProfileProvider] = useState<Provider | null>(null);
+  const [contactProvider, setContactProvider] = useState<Provider | null>(null);
 
-  const filteredProviders = providers.filter((provider) => {
-    // Search filter
-    if (
-      searchQuery &&
-      !provider.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !provider.category.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("savedProviderIds");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setSavedProviderIds(parsed.filter((id) => typeof id === "string"));
+      }
+    } catch {
+      setSavedProviderIds([]);
     }
+  }, []);
 
-    // Category filter
-    if (
-      selectedCategory !== "All Categories" &&
-      provider.category !== selectedCategory
-    ) {
-      return false;
-    }
+  useEffect(() => {
+    localStorage.setItem("savedProviderIds", JSON.stringify(savedProviderIds));
+  }, [savedProviderIds]);
 
-    // Verified filter
-    if (filters.verifiedOnly && !provider.verified) {
-      return false;
-    }
+  useEffect(() => {
+    const timeout = setTimeout(async () => {
+      setLoading(true);
+      setError("");
 
-    // Rating filter
-    if (provider.rating < filters.minRating) {
-      return false;
-    }
+      try {
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-    return true;
-  });
+        const query = new URLSearchParams();
+        if (searchQuery.trim()) query.set("search", searchQuery.trim());
+        if (selectedCategory !== "all") query.set("category", selectedCategory);
+        query.set("minRate", String(priceRange[0]));
+        query.set("maxRate", String(priceRange[1]));
+        query.set("verifiedOnly", String(filters.verifiedOnly));
+        query.set("availableNow", String(filters.availableNow));
+        if (filters.minRating > 0) query.set("minRating", String(filters.minRating));
+        query.set("sortBy", sortBy);
+
+        const url = resolveApiUrl(`/auth/providers?${query.toString()}`);
+        const res = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to load providers");
+        }
+
+        const data: ProvidersResponse = await res.json();
+        setProviders(Array.isArray(data.providers) ? data.providers : []);
+        setCategories(
+          Array.isArray(data.categories) && data.categories.length
+            ? data.categories
+            : ["all"],
+        );
+        setStats(
+          data.stats || {
+            total: 0,
+            verified: 0,
+            avgRating: 0,
+            avgRate: 0,
+          },
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load providers");
+        setProviders([]);
+        setCategories(["all"]);
+        setStats({ total: 0, verified: 0, avgRating: 0, avgRate: 0 });
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery, selectedCategory, sortBy, priceRange, filters]);
+
+  const toggleSaveProvider = (provider: Provider) => {
+    const alreadySaved = savedProviderIds.includes(provider.id);
+    setSavedProviderIds((prev) =>
+      alreadySaved ? prev.filter((id) => id !== provider.id) : [...prev, provider.id],
+    );
+    toast({
+      title: alreadySaved ? "Removed from saved providers" : "Provider saved",
+      description: alreadySaved
+        ? `${provider.name} was removed from your saved list.`
+        : `${provider.name} was added to your saved list.`,
+    });
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Find Service Providers</h1>
-        <p className="text-gray-600 mt-2">
-          Browse and connect with verified professionals in your area
-        </p>
+    <div className="space-y-6 text-gray-900">
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
+          <Sparkles className="h-4 w-4" />
+          Trusted Marketplace
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Find Service Providers</h1>
+            <p className="text-slate-200 mt-2">
+              Compare verified professionals, pricing, ratings, and response speed.
+            </p>
+          </div>
+          <Button asChild variant="secondary" className="text-slate-900">
+            <Link href="/client/post-job">Post a Job</Link>
+          </Button>
+        </div>
       </div>
 
-      {/* Search and Filters */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Total Providers</p>
+              <Users className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">{stats.total}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Verified Pros</p>
+              <CheckCircle className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">{stats.verified}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Average Rating</p>
+              <Star className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">{stats.avgRating}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Avg Hourly Rate</p>
+              <HandCoins className="h-4 w-4 text-gray-400" />
+            </div>
+            <p className="text-3xl font-semibold mt-1">₵ {stats.avgRate}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by name, category, skill, or location..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[190px]">
+                  <BriefcaseBusiness className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category === "all" ? "All Categories" : category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[190px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rating">Highest Rated</SelectItem>
+                  <SelectItem value="distance">Nearest First</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="reviews">Most Reviews</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid lg:grid-cols-4 gap-6">
-        {/* Filters Sidebar */}
         <div className="lg:col-span-1 space-y-6">
           <Card>
             <CardContent className="pt-6 space-y-6">
-              {/* Category Filter */}
               <div className="space-y-3">
-                <h3 className="font-semibold">Category</h3>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <div key={category} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`cat-${category}`}
-                        checked={selectedCategory === category}
-                        onCheckedChange={() => setSelectedCategory(category)}
-                      />
-                      <Label
-                        htmlFor={`cat-${category}`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {category}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Range */}
-              <div className="space-y-3">
-                <h3 className="font-semibold">Hourly Rate (ETB)</h3>
+                <h3 className="font-semibold">Hourly Rate</h3>
                 <div className="px-1">
                   <Slider
                     value={priceRange}
@@ -217,14 +321,13 @@ export default function FindProvidersPage() {
                   />
                   <div className="flex justify-between text-sm text-gray-600">
                     <span>₵ {priceRange[0]}</span>
-                    <span>₵ {priceRange[1]}+</span>
+                    <span>₵ {priceRange[1]}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Additional Filters */}
               <div className="space-y-3">
-                <h3 className="font-semibold">Filters</h3>
+                <h3 className="font-semibold">Provider Filters</h3>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -241,7 +344,7 @@ export default function FindProvidersPage() {
                       htmlFor="verified"
                       className="text-sm font-normal cursor-pointer flex items-center gap-2"
                     >
-                      <CheckCircle size={14} className="text-green-500" />
+                      <CheckCircle size={14} className="text-emerald-600" />
                       Verified Only
                     </Label>
                   </div>
@@ -260,219 +363,142 @@ export default function FindProvidersPage() {
                       htmlFor="available"
                       className="text-sm font-normal cursor-pointer flex items-center gap-2"
                     >
-                      <Clock size={14} className="text-blue-500" />
+                      <Clock size={14} className="text-blue-600" />
                       Available Now
                     </Label>
                   </div>
                 </div>
               </div>
 
-              {/* Rating Filter */}
               <div className="space-y-3">
                 <h3 className="font-semibold">Minimum Rating</h3>
                 <div className="space-y-2">
-                  {[4.5, 4.0, 3.5, 3.0].map((rating) => (
-                    <div key={rating} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`rating-${rating}`}
-                        checked={filters.minRating === rating}
-                        onCheckedChange={() =>
-                          setFilters((prev) => ({ ...prev, minRating: rating }))
-                        }
-                      />
-                      <Label
-                        htmlFor={`rating-${rating}`}
-                        className="text-sm font-normal cursor-pointer flex items-center gap-2"
-                      >
-                        <div className="flex items-center">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              size={12}
-                              className={`${
-                                i < Math.floor(rating)
-                                  ? "text-yellow-500 fill-yellow-500"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span>{rating}+</span>
-                      </Label>
-                    </div>
+                  {[0, 3.5, 4.0, 4.5].map((rating) => (
+                    <Button
+                      key={rating}
+                      type="button"
+                      variant={filters.minRating === rating ? "default" : "outline"}
+                      className="w-full justify-start h-9"
+                      onClick={() =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          minRating: rating,
+                        }))
+                      }
+                    >
+                      {rating === 0 ? "Any Rating" : `${rating}+ Stars`}
+                    </Button>
                   ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Stats */}
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold mb-4">Provider Stats</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total in Area:</span>
-                  <span className="font-medium">47</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Average Response:</span>
-                  <span className="font-medium">25 min</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Average Rating:</span>
-                  <span className="font-medium">4.8</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Avg. Hourly Rate:</span>
-                  <span className="font-medium">₵ 320</span>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3">
-          {/* Search Bar */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search providers by name, category, or skill..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <Select>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="rating">Highest Rated</SelectItem>
-                <SelectItem value="distance">Nearest First</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="reviews">Most Reviews</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Results */}
-          <div className="space-y-4">
-            {filteredProviders.map((provider) => (
+        <div className="lg:col-span-3 space-y-4">
+          {loading ? (
+            <Card>
+              <CardContent className="py-12 text-center text-sm text-gray-500">
+                Loading providers...
+              </CardContent>
+            </Card>
+          ) : error ? (
+            <Card>
+              <CardContent className="py-12 text-center text-sm text-red-600">
+                {error}
+              </CardContent>
+            </Card>
+          ) : (
+            providers.map((provider) => (
               <Card
                 key={provider.id}
-                className="hover:shadow-lg transition-shadow"
+                className="border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all"
               >
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-                    {/* Provider Avatar */}
-                    <div className="lg:w-24">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                        <span className="text-white text-2xl font-bold">
-                          {provider.name.charAt(0)}
-                        </span>
-                      </div>
-                      {provider.verified && (
-                        <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
-                          <CheckCircle size={12} />
-                          <span>Verified</span>
-                        </div>
-                      )}
+                <CardContent className="p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center shrink-0">
+                      <span className="text-white text-xl font-bold">{provider.name.charAt(0)}</span>
                     </div>
 
-                    {/* Provider Info */}
                     <div className="flex-1">
-                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xl font-semibold">
-                              {provider.name}
-                            </h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg font-semibold">{provider.name}</h3>
                             {provider.badges.map((badge) => (
-                              <Badge
-                                key={badge}
-                                variant="secondary"
-                                className="bg-yellow-100 text-yellow-800"
-                              >
+                              <Badge key={badge} variant="secondary">
                                 {badge}
                               </Badge>
                             ))}
                           </div>
-                          <p className="text-gray-600 mt-1">
-                            {provider.description}
-                          </p>
+                          <p className="text-gray-600 mt-1">{provider.description}</p>
 
-                          <div className="flex flex-wrap gap-4 mt-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-sm text-gray-600">
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center">
-                                <Star
-                                  size={16}
-                                  className="text-yellow-500 fill-yellow-500"
-                                />
-                                <span className="font-semibold ml-1">
-                                  {provider.rating}
-                                </span>
-                                <span className="text-gray-500 ml-1">
-                                  ({provider.reviews} reviews)
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <MapPin size={16} />
+                              <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
                               <span>
-                                {provider.location} • {provider.distance} away
+                                {provider.rating} ({provider.reviews} reviews)
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <Award size={16} />
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
                               <span>
-                                {provider.completedJobs} jobs completed
+                                {provider.location} | {provider.distance} km away
                               </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <BriefcaseBusiness className="h-4 w-4" />
+                              <span>{provider.completedJobs} jobs completed</span>
                             </div>
                           </div>
                         </div>
 
                         <div className="lg:text-right">
                           <div className="text-2xl font-bold">
-                            {provider.hourlyRate}
+                            ₵ {provider.hourlyMin}-{provider.hourlyMax}
                           </div>
                           <div className="text-sm text-gray-500">per hour</div>
-                          <div className="flex items-center gap-2 mt-2 text-sm text-green-600">
-                            <Clock size={14} />
-                            <span>{provider.responseTime} avg. response</span>
+                          <div className="mt-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                provider.availability === "Available Now"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-blue-50 text-blue-700 border-blue-200"
+                              }
+                            >
+                              {provider.availability}
+                            </Badge>
                           </div>
                         </div>
                       </div>
 
-                      {/* Availability & Actions */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 pt-6 border-t">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={
-                              provider.availability === "Available Now"
-                                ? "bg-green-100 text-green-800 border-green-200"
-                                : "bg-blue-100 text-blue-800 border-blue-200"
-                            }
-                          >
-                            {provider.availability}
-                          </Badge>
-                          <span className="text-sm text-gray-600">
-                            {provider.category} Specialist
-                          </span>
+                      <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="text-sm text-gray-600 flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>{provider.responseTime} avg. response</span>
                         </div>
-
-                        <div className="flex gap-3">
-                          <Button variant="outline" size="sm">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setProfileProvider(provider)}
+                          >
                             View Profile
                           </Button>
-                          <Button size="sm">Contact Provider</Button>
-                          <Button variant="outline" size="sm">
-                            Save
+                          <Button size="sm" onClick={() => setContactProvider(provider)}>
+                            Contact Provider
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={
+                              savedProviderIds.includes(provider.id)
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() => toggleSaveProvider(provider)}
+                          >
+                            {savedProviderIds.includes(provider.id) ? "Saved" : "Save"}
                           </Button>
                         </div>
                       </div>
@@ -480,37 +506,128 @@ export default function FindProvidersPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            ))
+          )}
 
-          {/* No Results */}
-          {filteredProviders.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 text-lg mb-2">
-                No providers found
-              </div>
-              <p className="text-gray-500 mb-6">
-                Try adjusting your search criteria
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("All Categories");
-                  setPriceRange([0, 1000]);
-                  setFilters({
-                    verifiedOnly: true,
-                    availableNow: false,
-                    minRating: 0,
-                  });
-                }}
-              >
-                Clear All Filters
-              </Button>
-            </div>
+          {!loading && !error && providers.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-gray-600">No providers match your current filters.</p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("all");
+                    setSortBy("rating");
+                    setPriceRange([0, 1000]);
+                    setFilters({
+                      verifiedOnly: true,
+                      availableNow: false,
+                      minRating: 0,
+                    });
+                  }}
+                >
+                  Clear All Filters
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
+
+      <Dialog
+        open={Boolean(profileProvider)}
+        onOpenChange={(open) => !open && setProfileProvider(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{profileProvider?.name || "Provider Profile"}</DialogTitle>
+            <DialogDescription>
+              Detailed provider information from your current search results.
+            </DialogDescription>
+          </DialogHeader>
+          {profileProvider && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="text-gray-500">Category:</span>{" "}
+                {profileProvider.category}
+              </div>
+              <div>
+                <span className="text-gray-500">Hourly Rate:</span> ₵{" "}
+                {profileProvider.hourlyMin}-{profileProvider.hourlyMax}
+              </div>
+              <div>
+                <span className="text-gray-500">Rating:</span> {profileProvider.rating} (
+                {profileProvider.reviews} reviews)
+              </div>
+              <div>
+                <span className="text-gray-500">Location:</span>{" "}
+                {profileProvider.location}
+              </div>
+              <div>
+                <span className="text-gray-500">Completed Jobs:</span>{" "}
+                {profileProvider.completedJobs}
+              </div>
+              <div>
+                <span className="text-gray-500">Description:</span>{" "}
+                {profileProvider.description}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (profileProvider) {
+                  setContactProvider(profileProvider);
+                }
+                setProfileProvider(null);
+              }}
+            >
+              Contact Provider
+            </Button>
+            <Button onClick={() => setProfileProvider(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(contactProvider)}
+        onOpenChange={(open) => !open && setContactProvider(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Contact {contactProvider?.name || "Provider"}
+            </DialogTitle>
+            <DialogDescription>
+              Start communication by opening messages for an existing job, or
+              post a new job request for this provider.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button asChild variant="outline">
+              <Link href="/client/messages">Open Messages</Link>
+            </Button>
+            <Button asChild>
+              <Link
+                href={
+                  contactProvider
+                    ? `/client/post-job?preferredProviderId=${encodeURIComponent(
+                        contactProvider.id,
+                      )}&preferredProviderName=${encodeURIComponent(
+                        contactProvider.name,
+                      )}`
+                    : "/client/post-job"
+                }
+              >
+                Post Job for Provider
+              </Link>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

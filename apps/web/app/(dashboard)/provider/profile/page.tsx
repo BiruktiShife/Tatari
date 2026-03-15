@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   UserCheck,
   Briefcase,
@@ -8,12 +8,10 @@ import {
   MapPin,
   Phone,
   Mail,
-  Globe,
   Edit,
   Save,
   X,
   Upload,
-  Award,
   Clock,
   CheckCircle,
 } from "lucide-react";
@@ -32,48 +30,204 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
-const skills = [
-  "Plumbing Installation",
-  "Pipe Repair",
-  "Leak Detection",
-  "Water Heater Installation",
-  "Drain Cleaning",
-  "Toilet Repair",
-];
+type ProviderProfileApi = {
+  id: string;
+  email: string;
+  name?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  businessName?: string | null;
+  serviceCategory?: string | null;
+  experience?: string | null;
+  bio?: string | null;
+  hourlyRate?: number | null;
+  serviceAreas?: string[];
+  verificationStatus?: string | null;
+};
 
-const services = [
-  { id: "1", name: "Basic Plumbing Repair", price: "₵ 300-500" },
-  { id: "2", name: "Pipe Installation", price: "₵ 800-1,200" },
-  { id: "3", name: "Water Heater Setup", price: "₵ 1,500-2,500" },
-  { id: "4", name: "Emergency Plumbing", price: "₵ 500-800" },
-];
+type ProfileForm = {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  experience: string;
+  bio: string;
+  hourlyRate: number | null;
+  businessName: string;
+  serviceCategory: string;
+  serviceAreas: string[];
+  verificationStatus: string;
+};
+
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) {
+        return `${apiUrl.replace(/\/$/, "")}${path}`;
+      }
+      throw err;
+    }
+  }
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+  return path;
+}
+
+function mapApiToForm(user: ProviderProfileApi): ProfileForm {
+  return {
+    name: user.name || "",
+    email: user.email || "",
+    phone: user.phone || "",
+    location: user.address || "",
+    experience: user.experience || "",
+    bio: user.bio || "",
+    hourlyRate: user.hourlyRate ?? null,
+    businessName: user.businessName || "",
+    serviceCategory: user.serviceCategory || "",
+    serviceAreas: user.serviceAreas || [],
+    verificationStatus: (user.verificationStatus || "PENDING").toLowerCase(),
+  };
+}
 
 export default function ProviderProfilePage() {
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [profile, setProfile] = useState({
-    name: "Samuel Plumbing",
-    email: "samuel@example.com",
-    phone: "+251 91 234 5678",
-    location: "Addis Ababa, Ethiopia",
-    experience: "8 years",
-    rating: 4.9,
-    totalJobs: 42,
-    bio: "Professional plumber with 8+ years of experience in residential and commercial plumbing. Specialized in pipe repair, installation, and emergency services. Committed to quality work and customer satisfaction.",
-    hourlyRate: "₵ 500",
-    minimumJob: "₵ 300",
-    responseTime: "1-2 hours",
-    verificationStatus: "verified",
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState<ProfileForm | null>(null);
+  const [originalProfile, setOriginalProfile] = useState<ProfileForm | null>(
+    null,
+  );
+  const [serviceAreasInput, setServiceAreasInput] = useState("");
 
-  const handleSave = () => {
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      try {
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const res = await fetch(resolveApiUrl("/auth/me"), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Failed to load profile");
+        }
+        const data: ProviderProfileApi = await res.json();
+        const mapped = mapApiToForm(data);
+        setProfile(mapped);
+        setOriginalProfile(mapped);
+        setServiceAreasInput(mapped.serviceAreas.join(", "));
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Could not load profile";
+        toast({
+          title: "Profile load failed",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [toast]);
+
+  const handleCancel = () => {
+    if (originalProfile) {
+      setProfile(originalProfile);
+      setServiceAreasInput(originalProfile.serviceAreas.join(", "));
+    }
     setIsEditing(false);
-    // Save profile logic here
   };
+
+  const handleSave = async () => {
+    if (!profile) return;
+    setSaving(true);
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const payload = {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        address: profile.location,
+        experience: profile.experience,
+        bio: profile.bio,
+        hourlyRate: profile.hourlyRate,
+        businessName: profile.businessName,
+        serviceCategory: profile.serviceCategory,
+        serviceAreas: profile.serviceAreas,
+      };
+
+      const res = await fetch(resolveApiUrl("/auth/me/provider-profile"), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to save profile");
+      }
+
+      const updated: ProviderProfileApi = await res.json();
+      const mapped = mapApiToForm(updated);
+      setProfile(mapped);
+      setOriginalProfile(mapped);
+      setServiceAreasInput(mapped.serviceAreas.join(", "));
+      setIsEditing(false);
+      toast({
+        title: "Profile updated",
+        description: "Your provider profile has been saved.",
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not save profile";
+      toast({
+        title: "Save failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const services = useMemo(() => {
+    if (!profile) return [];
+    return [
+      {
+        id: "primary",
+        name: profile.serviceCategory || "General Service",
+        price:
+          profile.hourlyRate != null
+            ? `From ₵ ${profile.hourlyRate}/hr`
+            : "Rate not set",
+      },
+    ];
+  }, [profile]);
+
+  if (loading || !profile) {
+    return <div className="text-sm text-gray-500">Loading profile...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">My Profile</h1>
@@ -84,13 +238,13 @@ export default function ProviderProfilePage() {
         <div className="flex gap-2">
           {isEditing ? (
             <>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
+              <Button variant="outline" onClick={handleCancel} disabled={saving}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
+              <Button onClick={handleSave} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
-                Save Changes
+                {saving ? "Saving..." : "Save Changes"}
               </Button>
             </>
           ) : (
@@ -102,13 +256,10 @@ export default function ProviderProfilePage() {
         </div>
       </div>
 
-      {/* Profile Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
         <Card className="lg:col-span-2">
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-6">
-              {/* Profile Image */}
               <div className="flex-shrink-0">
                 <div className="relative">
                   <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center">
@@ -125,12 +276,13 @@ export default function ProviderProfilePage() {
                 </div>
               </div>
 
-              {/* Profile Info */}
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-2xl font-bold">{profile.name}</h2>
+                      <h2 className="text-2xl font-bold">
+                        {profile.businessName || profile.name || "Provider"}
+                      </h2>
                       <Badge className="bg-green-100 text-green-800">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         {profile.verificationStatus}
@@ -139,19 +291,16 @@ export default function ProviderProfilePage() {
                     <div className="flex items-center gap-4 mt-2 text-gray-600">
                       <div className="flex items-center gap-1">
                         <Briefcase size={16} />
-                        <span>{profile.experience} experience</span>
+                        <span>{profile.experience || "Not set"} experience</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Star size={16} className="text-yellow-500" />
-                        <span>
-                          {profile.rating} ({profile.totalJobs} jobs)
-                        </span>
+                        <span>No ratings yet</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Contact Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-gray-400" />
@@ -163,7 +312,7 @@ export default function ProviderProfilePage() {
                         }
                       />
                     ) : (
-                      <span>{profile.email}</span>
+                      <span>{profile.email || "Not set"}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -176,7 +325,7 @@ export default function ProviderProfilePage() {
                         }
                       />
                     ) : (
-                      <span>{profile.phone}</span>
+                      <span>{profile.phone || "Not set"}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -189,16 +338,55 @@ export default function ProviderProfilePage() {
                         }
                       />
                     ) : (
-                      <span>{profile.location}</span>
+                      <span>{profile.location || "Not set"}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-gray-400" />
-                    <span>Response: {profile.responseTime}</span>
+                    <span>Response: Not set</span>
                   </div>
                 </div>
 
-                {/* Bio */}
+                <div className="mt-4">
+                  <Label className="mb-2 block">Service Category</Label>
+                  {isEditing ? (
+                    <Input
+                      value={profile.serviceCategory}
+                      onChange={(e) =>
+                        setProfile({ ...profile, serviceCategory: e.target.value })
+                      }
+                    />
+                  ) : (
+                    <p className="text-gray-600">
+                      {profile.serviceCategory || "Not set"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <Label className="mb-2 block">Service Areas (comma-separated)</Label>
+                  {isEditing ? (
+                    <Input
+                      value={serviceAreasInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setServiceAreasInput(value);
+                        const areas = value
+                          .split(",")
+                          .map((a) => a.trim())
+                          .filter(Boolean);
+                        setProfile({ ...profile, serviceAreas: areas });
+                      }}
+                    />
+                  ) : (
+                    <p className="text-gray-600">
+                      {profile.serviceAreas.length
+                        ? profile.serviceAreas.join(", ")
+                        : "Not set"}
+                    </p>
+                  )}
+                </div>
+
                 <div className="mt-6">
                   <Label className="mb-2 block">About Me</Label>
                   {isEditing ? (
@@ -210,7 +398,7 @@ export default function ProviderProfilePage() {
                       rows={4}
                     />
                   ) : (
-                    <p className="text-gray-600">{profile.bio}</p>
+                    <p className="text-gray-600">{profile.bio || "No bio yet."}</p>
                   )}
                 </div>
               </div>
@@ -218,7 +406,6 @@ export default function ProviderProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Stats Card */}
         <Card>
           <CardHeader>
             <CardTitle>Profile Stats</CardTitle>
@@ -227,11 +414,17 @@ export default function ProviderProfilePage() {
             <div className="space-y-4">
               <div>
                 <div className="text-sm text-gray-500">Hourly Rate</div>
-                <div className="text-2xl font-bold">{profile.hourlyRate}</div>
+                <div className="text-2xl font-bold">
+                  {profile.hourlyRate != null
+                    ? `₵ ${profile.hourlyRate}`
+                    : "Not set"}
+                </div>
               </div>
               <div>
-                <div className="text-sm text-gray-500">Minimum Job</div>
-                <div className="text-2xl font-bold">{profile.minimumJob}</div>
+                <div className="text-sm text-gray-500">Service Category</div>
+                <div className="text-2xl font-bold">
+                  {profile.serviceCategory || "Not set"}
+                </div>
               </div>
               <div>
                 <div className="text-sm text-gray-500">Completion Rate</div>
@@ -246,7 +439,6 @@ export default function ProviderProfilePage() {
         </Card>
       </div>
 
-      {/* Skills & Services Tabs */}
       <Tabs defaultValue="skills" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="skills">Skills & Expertise</TabsTrigger>
@@ -254,39 +446,40 @@ export default function ProviderProfilePage() {
           <TabsTrigger value="availability">Availability</TabsTrigger>
         </TabsList>
 
-        {/* Skills Tab */}
         <TabsContent value="skills">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Skills & Expertise</span>
-                {isEditing && <Button size="sm">Add Skill</Button>}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {skills.map((skill) => (
-                  <Badge
-                    key={skill}
-                    variant="secondary"
-                    className="text-sm py-1 px-3"
-                  >
-                    {skill}
-                    {isEditing && <X className="h-3 w-3 ml-2 cursor-pointer" />}
-                  </Badge>
-                ))}
+                {profile.serviceAreas.length ? (
+                  profile.serviceAreas.map((area) => (
+                    <Badge
+                      key={area}
+                      variant="secondary"
+                      className="text-sm py-1 px-3"
+                    >
+                      {area}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    Add service areas to show your expertise coverage.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Services Tab */}
         <TabsContent value="services">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Services & Pricing</span>
-                {isEditing && <Button size="sm">Add Service</Button>}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -298,26 +491,8 @@ export default function ProviderProfilePage() {
                   >
                     <div>
                       <div className="font-medium">{service.name}</div>
-                      {isEditing ? (
-                        <Input
-                          value={service.price}
-                          className="w-32 mt-1"
-                          onChange={() => {}}
-                        />
-                      ) : (
-                        <div className="text-gray-600">{service.price}</div>
-                      )}
+                      <div className="text-gray-600">{service.price}</div>
                     </div>
-                    {isEditing && (
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -325,7 +500,6 @@ export default function ProviderProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* Availability Tab */}
         <TabsContent value="availability">
           <Card>
             <CardHeader>
