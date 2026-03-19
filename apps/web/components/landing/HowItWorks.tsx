@@ -1,5 +1,14 @@
 import React from "react";
-import { Search, MessageSquare, UserCheck, DollarSign } from "lucide-react";
+import {
+  Search,
+  MessageSquare,
+  UserCheck,
+  DollarSign,
+  PlayCircle,
+  Activity,
+  CheckCircle2,
+  ShieldCheck,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "../ui/button";
 
@@ -30,6 +39,90 @@ const steps = [
     description:
       "100% payment protection. Funds released only after job completion.",
     color: "bg-orange-100 text-orange-600",
+  },
+];
+
+const lifecycle = [
+  {
+    role: "Client",
+    roleColor: "bg-blue-50 text-blue-700 border-blue-200",
+    stages: [
+      {
+        title: "Job Start",
+        icon: PlayCircle,
+        description:
+          "Confirm scope, approve the quote, and release the escrow deposit.",
+        badge: "Client approval",
+      },
+      {
+        title: "In Progress",
+        icon: Activity,
+        description:
+          "Track updates, respond to questions, and request changes if needed.",
+        badge: "Live updates",
+      },
+      {
+        title: "Completion",
+        icon: CheckCircle2,
+        description:
+          "Review work, mark complete, and release final payment securely.",
+        badge: "Final sign-off",
+      },
+    ],
+  },
+  {
+    role: "Provider",
+    roleColor: "bg-green-50 text-green-700 border-green-200",
+    stages: [
+      {
+        title: "Job Start",
+        icon: PlayCircle,
+        description:
+          "Accept the job, confirm arrival time, and start with verified scope.",
+        badge: "Start confirmed",
+      },
+      {
+        title: "In Progress",
+        icon: Activity,
+        description:
+          "Share milestones, upload photos, and keep the client informed.",
+        badge: "Milestones",
+      },
+      {
+        title: "Completion",
+        icon: CheckCircle2,
+        description:
+          "Submit completion proof and receive payout after client approval.",
+        badge: "Payout ready",
+      },
+    ],
+  },
+  {
+    role: "Admin",
+    roleColor: "bg-amber-50 text-amber-700 border-amber-200",
+    stages: [
+      {
+        title: "Job Start",
+        icon: PlayCircle,
+        description:
+          "Verify accounts, validate escrow funding, and lock job terms.",
+        badge: "Compliance",
+      },
+      {
+        title: "In Progress",
+        icon: Activity,
+        description:
+          "Monitor communications, handle disputes, and audit progress logs.",
+        badge: "Oversight",
+      },
+      {
+        title: "Completion",
+        icon: ShieldCheck,
+        description:
+          "Resolve issues, release funds, and close the job record.",
+        badge: "Closeout",
+      },
+    ],
   },
 ];
 
@@ -76,6 +169,61 @@ export default function HowItWorks() {
               </div>
             );
           })}
+        </div>
+
+        {/* Job lifecycle */}
+        <div className="mt-20">
+          <div className="text-center mb-10">
+            <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+              Job Lifecycle: Start, Progress, Completion
+            </h3>
+            <p className="text-gray-600 max-w-3xl mx-auto">
+              Clear responsibilities across client, provider, and admin keep
+              every job transparent, accountable, and on time.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {lifecycle.map((role) => (
+              <Card key={role.role} className="border-2">
+                <CardContent className="p-6">
+                  <div
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${role.roleColor}`}
+                  >
+                    {role.role}
+                  </div>
+                  <div className="mt-6 space-y-5">
+                    {role.stages.map((stage) => {
+                      const Icon = stage.icon;
+                      return (
+                        <div
+                          key={`${role.role}-${stage.title}`}
+                          className="flex gap-4"
+                        >
+                          <div className="mt-1 h-10 w-10 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center">
+                            <Icon size={20} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-gray-900">
+                                {stage.title}
+                              </h4>
+                              <span className="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                                {stage.badge}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {stage.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
         {/* For Providers */}

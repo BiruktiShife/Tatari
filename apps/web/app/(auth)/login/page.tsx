@@ -15,6 +15,28 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return `${apiUrl.replace(/\/$/, "")}${path}`;
+    } catch (err) {
+      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
+      throw err;
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    return origin.includes("localhost")
+      ? `http://localhost:3003${path}`
+      : `${origin}${path}`;
+  }
+
+  return path;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -30,6 +52,7 @@ export default function LoginPage() {
     password: "",
     rememberMe: false,
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -37,14 +60,31 @@ export default function LoginPage() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors: Record<string, string> = {};
+    if (!formData.email.trim()) {
+      nextErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      nextErrors.email = "Enter a valid email";
+    }
+    if (!formData.password) {
+      nextErrors.password = "Password is required";
+    }
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3003/auth/login", {
+      const res = await fetch(resolveApiUrl("/auth/login"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -83,6 +123,7 @@ export default function LoginPage() {
           description: message || "Invalid credentials",
           variant: "destructive",
         });
+        setErrors((prev) => ({ ...prev, form: message || "Login failed" }));
         return;
       }
 
@@ -122,6 +163,10 @@ export default function LoginPage() {
         description: "Unable to connect to server.",
         variant: "destructive",
       });
+      setErrors((prev) => ({
+        ...prev,
+        form: "Unable to connect to server. Please try again.",
+      }));
     } finally {
       setIsLoading(false);
     }
@@ -139,6 +184,11 @@ export default function LoginPage() {
 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errors.form && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {errors.form}
+            </div>
+          )}
           {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">Email address</Label>
@@ -155,6 +205,9 @@ export default function LoginPage() {
                 required
               />
             </div>
+            {errors.email && (
+              <p className="text-sm text-red-600">{errors.email}</p>
+            )}
           </div>
 
           {/* Password */}
@@ -189,6 +242,9 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            {errors.password && (
+              <p className="text-sm text-red-600">{errors.password}</p>
+            )}
           </div>
 
           {/* Submit */}

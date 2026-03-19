@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 type ProviderJob = {
   id: string;
@@ -124,6 +125,9 @@ export default function ProviderMyJobsPage() {
   const [jobs, setJobs] = useState<ProviderJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [startingJobId, setStartingJobId] = useState<string | null>(null);
+  const [completingJobId, setCompletingJobId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -159,6 +163,88 @@ export default function ProviderMyJobsPage() {
 
     fetchJobs();
   }, []);
+
+  const handleStartJob = async (jobId: string) => {
+    try {
+      setStartingJobId(jobId);
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        toast({
+          title: "Missing token",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const res = await fetch(resolveApiUrl(`/jobs/${jobId}/start`), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to start job.");
+      }
+      setJobs((prev) =>
+        prev.map((job) =>
+          job.id === jobId ? { ...job, status: "IN_PROGRESS" } : job,
+        ),
+      );
+      toast({
+        title: "Job started",
+        description: "You marked this job as in progress.",
+      });
+    } catch (err) {
+      toast({
+        title: "Start failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setStartingJobId(null);
+    }
+  };
+
+  const handleCompleteJob = async (jobId: string) => {
+    try {
+      setCompletingJobId(jobId);
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        toast({
+          title: "Missing token",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const res = await fetch(resolveApiUrl(`/jobs/${jobId}/complete`), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to complete job.");
+      }
+      setJobs((prev) =>
+        prev.map((job) =>
+          job.id === jobId ? { ...job, status: "COMPLETED" } : job,
+        ),
+      );
+      toast({
+        title: "Job completed",
+        description: "You marked this job as completed.",
+      });
+    } catch (err) {
+      toast({
+        title: "Complete failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCompletingJobId(null);
+    }
+  };
 
   const filteredJobs = useMemo(() => {
     let list = [...jobs];
@@ -317,7 +403,16 @@ export default function ProviderMyJobsPage() {
           ) : error ? (
             <EmptyState message={error} />
           ) : activeJobs.length ? (
-            activeJobs.map((job) => <JobCard key={job.id} job={job} />)
+            activeJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onStart={handleStartJob}
+                onComplete={handleCompleteJob}
+                starting={startingJobId === job.id}
+                completing={completingJobId === job.id}
+              />
+            ))
           ) : (
             <EmptyState message="No active jobs found." />
           )}
@@ -329,7 +424,16 @@ export default function ProviderMyJobsPage() {
           ) : error ? (
             <EmptyState message={error} />
           ) : pendingJobs.length ? (
-            pendingJobs.map((job) => <JobCard key={job.id} job={job} />)
+            pendingJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onStart={handleStartJob}
+                onComplete={handleCompleteJob}
+                starting={startingJobId === job.id}
+                completing={completingJobId === job.id}
+              />
+            ))
           ) : (
             <EmptyState message="No pending jobs right now." />
           )}
@@ -341,7 +445,16 @@ export default function ProviderMyJobsPage() {
           ) : error ? (
             <EmptyState message={error} />
           ) : completedJobs.length ? (
-            completedJobs.map((job) => <JobCard key={job.id} job={job} />)
+            completedJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onStart={handleStartJob}
+                onComplete={handleCompleteJob}
+                starting={startingJobId === job.id}
+                completing={completingJobId === job.id}
+              />
+            ))
           ) : (
             <EmptyState message="No completed jobs yet." />
           )}
@@ -362,7 +475,19 @@ function EmptyState({ message }: { message: string }) {
 }
 
 // Job Card Component
-function JobCard({ job }: { job: ProviderJob }) {
+function JobCard({
+  job,
+  onStart,
+  onComplete,
+  starting,
+  completing,
+}: {
+  job: ProviderJob;
+  onStart: (id: string) => void;
+  onComplete: (id: string) => void;
+  starting: boolean;
+  completing: boolean;
+}) {
   const statusKey = (job.status || "PENDING").toLowerCase();
   const badgeStyle = statusColors[statusKey] || "bg-gray-100 text-gray-700";
   const upperStatus = (job.status || "").toUpperCase();
@@ -409,16 +534,19 @@ function JobCard({ job }: { job: ProviderJob }) {
             <Link href={`/provider/jobs/${job.id}`}>View Details</Link>
           </Button>
           {upperStatus === "IN_PROGRESS" && (
-            <Button asChild>
-              <Link href={`/provider/jobs/${job.id}/update`}>
-                Update Progress
-              </Link>
-            </Button>
+            <>
+              <Button variant="outline" asChild>
+                <Link href={`/provider/jobs/${job.id}/update`}>Post Update</Link>
+              </Button>
+              <Button onClick={() => onComplete(job.id)} disabled={completing}>
+                {completing ? "Completing..." : "Mark Complete"}
+              </Button>
+            </>
           )}
           {upperStatus === "ACCEPTED" && (
-            <Button>
+            <Button onClick={() => onStart(job.id)} disabled={starting}>
               <CheckCircle className="h-4 w-4 mr-1" />
-              Start Job
+              {starting ? "Starting..." : "Start Job"}
             </Button>
           )}
           {upperStatus !== "COMPLETED" && (

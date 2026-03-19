@@ -46,7 +46,7 @@ export function Header({ userName, userType }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-white">
+    <header className="fixed inset-x-0 top-0 z-50 border-b bg-white">
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
         {/* Left section */}
         <div className="flex items-center gap-4">

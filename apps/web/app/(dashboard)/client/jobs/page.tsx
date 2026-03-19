@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 type JobItem = {
   id: string;
@@ -112,6 +113,8 @@ export default function MyJobsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [approvingJobId, setApprovingJobId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   React.useEffect(() => {
     const fetchJobs = async () => {
@@ -182,6 +185,45 @@ export default function MyJobsPage() {
     }, 0);
     return { active, quotes, budget, total: jobs.length };
   }, [jobs]);
+
+  const handleApproveCompletion = async (jobId: string) => {
+    try {
+      setApprovingJobId(jobId);
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        toast({
+          title: "Missing token",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const res = await fetch(
+        resolveJobsUrl().replace(/\/jobs$/, `/jobs/${jobId}/approve-completion`),
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to approve completion.");
+      }
+      toast({
+        title: "Completion approved",
+        description: "Payment has been released to the provider.",
+      });
+    } catch (err) {
+      toast({
+        title: "Approval failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setApprovingJobId(null);
+    }
+  };
 
   return (
     <div className="space-y-6 text-gray-900">
@@ -284,7 +326,14 @@ export default function MyJobsPage() {
           {loading ? (
             <div className="text-sm text-gray-500">Loading jobs...</div>
           ) : activeJobs.length ? (
-            activeJobs.map((job) => <JobCard key={job.id} job={job} />)
+            activeJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onApproveCompletion={handleApproveCompletion}
+                approving={approvingJobId === job.id}
+              />
+            ))
           ) : (
             <EmptyState message="No active jobs found." />
           )}
@@ -292,7 +341,14 @@ export default function MyJobsPage() {
 
         <TabsContent value="pending" className="space-y-4">
           {pendingJobs.length ? (
-            pendingJobs.map((job) => <JobCard key={job.id} job={job} />)
+            pendingJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onApproveCompletion={handleApproveCompletion}
+                approving={approvingJobId === job.id}
+              />
+            ))
           ) : (
             <EmptyState message="No pending jobs right now." />
           )}
@@ -300,7 +356,14 @@ export default function MyJobsPage() {
 
         <TabsContent value="completed" className="space-y-4">
           {completedJobs.length ? (
-            completedJobs.map((job) => <JobCard key={job.id} job={job} />)
+            completedJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onApproveCompletion={handleApproveCompletion}
+                approving={approvingJobId === job.id}
+              />
+            ))
           ) : (
             <EmptyState message="No completed jobs yet." />
           )}
@@ -320,7 +383,15 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function JobCard({ job }: { job: JobItem }) {
+function JobCard({
+  job,
+  onApproveCompletion,
+  approving,
+}: {
+  job: JobItem;
+  onApproveCompletion: (id: string) => void;
+  approving: boolean;
+}) {
   const statusKey = (job.status || "pending").toLowerCase();
   const badgeStyle = statusColors[statusKey] || "bg-gray-100 text-gray-700";
 
@@ -366,7 +437,16 @@ function JobCard({ job }: { job: JobItem }) {
               )}
               {statusKey === "in_progress" && (
                 <Button size="sm" asChild>
-                  <Link href={`/client/messages?job=${job.id}`}>Message Provider</Link>
+                  <Link href={`/client/jobs/${job.id}/updates`}>View Updates</Link>
+                </Button>
+              )}
+              {statusKey === "completed" && (
+                <Button
+                  size="sm"
+                  onClick={() => onApproveCompletion(job.id)}
+                  disabled={approving}
+                >
+                  {approving ? "Approving..." : "Approve & Release Payment"}
                 </Button>
               )}
             </div>

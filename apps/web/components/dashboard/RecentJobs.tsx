@@ -119,8 +119,10 @@ export function RecentJobs({ jobs }: RecentJobsProps) {
                       <Button size="sm">Review Quotes</Button>
                     )}
                     {job.status === "in_progress" && (
-                      <Button size="sm" variant="outline">
-                        Message
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/client/jobs/${job.id}/updates`}>
+                          View Updates
+                        </Link>
                       </Button>
                     )}
                   </div>

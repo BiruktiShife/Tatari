@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatsCards } from "@/components/dashboard/StatsCards";
-import { AdminQuickStats } from "@/components/dashboard/AdminQuickStats";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { JobLifecycleOverview } from "@/components/dashboard/JobLifecycleOverview";
 
 type SummaryResponse = {
   totalUsers: number;
@@ -12,8 +12,22 @@ type SummaryResponse = {
   totalRevenue: number;
   disputeCases: number;
   pendingProviders: number;
+  jobLifecycle?: {
+    started: number;
+    inProgress: number;
+    completed: number;
+  };
   recentPendingProviders: { id: string; name: string; createdAt: string }[];
-  recentDisputes: { id: string; title: string; status: string; createdAt: string }[];
+  recentDisputes: {
+    id: string;
+    title: string;
+    status: string;
+    createdAt: string;
+  }[];
+};
+
+type AdminJobsResponse = {
+  jobs: { status?: string }[];
 };
 
 function resolveApiUrl(path: string) {
@@ -55,6 +69,11 @@ export default function AdminDashboardPage() {
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [jobLifecycle, setJobLifecycle] = useState<{
+    started: number;
+    inProgress: number;
+    completed: number;
+  } | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -84,20 +103,48 @@ export default function AdminDashboardPage() {
         if (!token) {
           setError("Missing admin token. Please log in again.");
           setSummary(null);
+          setJobLifecycle(null);
           return;
         }
-        const res = await fetch(resolveApiUrl("/admin/users/summary"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          const text = await res.text();
+        const [summaryRes, jobsRes] = await Promise.all([
+          fetch(resolveApiUrl("/admin/users/summary"), {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(resolveApiUrl("/admin/users/jobs"), {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (!summaryRes.ok) {
+          const text = await summaryRes.text();
           throw new Error(text || "Failed to load summary.");
         }
-        const data: SummaryResponse = await res.json();
+        const data: SummaryResponse = await summaryRes.json();
         setSummary(data);
+
+        if (jobsRes.ok) {
+          const jobsData: AdminJobsResponse = await jobsRes.json();
+          const jobs = Array.isArray(jobsData.jobs) ? jobsData.jobs : [];
+          const startedStatuses = new Set(["PENDING", "ACTIVE", "ACCEPTED"]);
+          const started = jobs.filter((job) =>
+            startedStatuses.has((job.status || "").toUpperCase()),
+          ).length;
+          const inProgress = jobs.filter(
+            (job) => (job.status || "").toUpperCase() === "IN_PROGRESS",
+          ).length;
+          const completed = jobs.filter(
+            (job) => (job.status || "").toUpperCase() === "COMPLETED",
+          ).length;
+          setJobLifecycle({ started, inProgress, completed });
+        } else {
+          setJobLifecycle(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load summary.");
+        setError(
+          err instanceof Error ? err.message : "Failed to load summary.",
+        );
         setSummary(null);
+        setJobLifecycle(null);
       } finally {
         setLoading(false);
       }
@@ -156,7 +203,16 @@ export default function AdminDashboardPage() {
         <StatsCards stats={stats} />
       )}
 
-      <AdminQuickStats />
+      {summary &&
+        !loading &&
+        !error &&
+        (summary.jobLifecycle || jobLifecycle) && (
+          <JobLifecycleOverview
+            counts={summary.jobLifecycle || jobLifecycle!}
+            title="Platform Job Lifecycle"
+            subtitle="Start, in-progress, and completed jobs across the marketplace."
+          />
+        )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="border rounded-lg p-6">
@@ -170,7 +226,9 @@ export default function AdminDashboardPage() {
                 >
                   <div>
                     <div className="font-medium">{provider.name}</div>
-                    <div className="text-sm text-gray-500">Service Provider</div>
+                    <div className="text-sm text-gray-500">
+                      Service Provider
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline">
@@ -182,7 +240,8 @@ export default function AdminDashboardPage() {
                         router.push("/admin/users");
                         toast({
                           title: "Approve provider",
-                          description: "Use Users Management to approve providers.",
+                          description:
+                            "Use Users Management to approve providers.",
                         });
                       }}
                     >

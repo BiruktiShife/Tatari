@@ -45,6 +45,8 @@ type ProviderProfileApi = {
   hourlyRate?: number | null;
   serviceAreas?: string[];
   verificationStatus?: string | null;
+  rating?: number | null;
+  reviews?: number | null;
 };
 
 type ProfileForm = {
@@ -109,6 +111,8 @@ export default function ProviderProfilePage() {
     null,
   );
   const [serviceAreasInput, setServiceAreasInput] = useState("");
+  const [rating, setRating] = useState<number | null>(null);
+  const [reviews, setReviews] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -128,6 +132,8 @@ export default function ProviderProfilePage() {
         setProfile(mapped);
         setOriginalProfile(mapped);
         setServiceAreasInput(mapped.serviceAreas.join(", "));
+        setRating(data.rating ?? null);
+        setReviews(data.reviews ?? null);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Could not load profile";
@@ -295,7 +301,11 @@ export default function ProviderProfilePage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Star size={16} className="text-yellow-500" />
-                        <span>No ratings yet</span>
+                        <span>
+                          {rating != null && rating > 0
+                            ? `${rating} (${reviews ?? 0} reviews)`
+                            : "No ratings yet"}
+                        </span>
                       </div>
                     </div>
                   </div>

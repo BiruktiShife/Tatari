@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -56,6 +57,7 @@ function resolveApiUrl(path: string) {
 export default function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const [userType, setUserType] = useState<"client" | "provider">(
     (searchParams.get("role") as "client" | "provider") || "client",
   );
@@ -82,6 +84,7 @@ export default function RegisterPage() {
     serviceAreas: [] as string[],
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const serviceCategories = [
@@ -155,6 +158,10 @@ export default function RegisterPage() {
         newErrors.experience = "Years of experience is required";
       if (!formData.hourlyRate)
         newErrors.hourlyRate = "Hourly rate is required";
+      else if (Number(formData.hourlyRate) <= 0)
+        newErrors.hourlyRate = "Hourly rate must be greater than 0";
+      if (!formData.serviceAreas.length)
+        newErrors.serviceAreas = "Select at least one service area";
     }
 
     return newErrors;
@@ -168,6 +175,7 @@ export default function RegisterPage() {
     }
     setStep(2);
     setErrors({});
+    setFormError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,6 +188,7 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
+    setFormError("");
 
     try {
       const endpoint =
@@ -217,20 +226,41 @@ export default function RegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      let rawText = "";
+      try {
+        data = await res.json();
+      } catch {
+        rawText = await res.text().catch(() => "");
+      }
 
       if (!res.ok) {
-        console.error(data);
-        alert(data.message || "Registration failed");
+        const message =
+          typeof data?.message === "string"
+            ? data.message
+            : rawText || "Registration failed";
+        setFormError(message);
+        toast({
+          title: "Registration failed",
+          description: message,
+          variant: "destructive",
+        });
         setIsLoading(false);
         return;
       }
 
-      alert("Account created successfully!");
+      toast({
+        title: "Account created",
+        description: "You can now sign in with your credentials.",
+      });
       router.push("/login");
     } catch (error) {
-      console.error("Registration error:", error);
-      alert("Server error. Make sure backend is running.");
+      setFormError("Server error. Please try again.");
+      toast({
+        title: "Server error",
+        description: "Unable to connect to server.",
+        variant: "destructive",
+      });
     }
 
     setIsLoading(false);
@@ -244,6 +274,7 @@ export default function RegisterPage() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
+    if (formError) setFormError("");
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -251,6 +282,7 @@ export default function RegisterPage() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
+    if (formError) setFormError("");
   };
 
   const toggleServiceArea = (area: string) => {
@@ -337,6 +369,11 @@ export default function RegisterPage() {
             )}
 
             <form onSubmit={handleSubmit}>
+              {formError && (
+                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
               {step === 1 ? (
                 <div className="space-y-4">
                   {/* Full Name */}
@@ -689,6 +726,12 @@ export default function RegisterPage() {
                             </Button>
                           ))}
                         </div>
+                        {errors.serviceAreas && (
+                          <p className="text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {errors.serviceAreas}
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-2">

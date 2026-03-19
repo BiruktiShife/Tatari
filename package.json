@@ -22,6 +22,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "@nestjs/serve-static": "^5.0.4"
+    "@nestjs/serve-static": "^5.0.4",
+    "next-themes": "^0.4.6"
   }
 }

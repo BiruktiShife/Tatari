@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { RecentJobs } from "@/components/dashboard/RecentJobs";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import {
+  JobLifecycleOverview,
+  type JobLifecycleCounts,
+} from "@/components/dashboard/JobLifecycleOverview";
 
 type MeResponse = {
   name?: string | null;
@@ -202,6 +206,20 @@ export default function ClientDashboardPage() {
     [jobs],
   );
 
+  const lifecycleCounts: JobLifecycleCounts = useMemo(() => {
+    const startedStatuses = new Set(["PENDING", "ACTIVE", "ACCEPTED"]);
+    const started = jobs.filter((job) =>
+      startedStatuses.has((job.status || "").toUpperCase()),
+    ).length;
+    const inProgress = jobs.filter(
+      (job) => (job.status || "").toUpperCase() === "IN_PROGRESS",
+    ).length;
+    const completed = jobs.filter(
+      (job) => (job.status || "").toUpperCase() === "COMPLETED",
+    ).length;
+    return { started, inProgress, completed };
+  }, [jobs]);
+
   if (!authorized) return null;
   if (loading) return <div className="text-sm text-gray-500">Loading dashboard...</div>;
 
@@ -215,6 +233,12 @@ export default function ClientDashboardPage() {
       </div>
 
       <StatsCards stats={stats} />
+
+      <JobLifecycleOverview
+        counts={lifecycleCounts}
+        title="Your Job Lifecycle"
+        subtitle="Live visibility into starts, in-progress work, and completions."
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">

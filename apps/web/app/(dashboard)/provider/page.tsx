@@ -14,6 +14,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AvailableJobs } from "@/components/dashboard/AvailableJobs";
+import {
+  JobLifecycleOverview,
+  type JobLifecycleCounts,
+} from "@/components/dashboard/JobLifecycleOverview";
 
 type MeResponse = {
   id: string;
@@ -28,6 +32,7 @@ type JobItem = {
   budgetAmount?: number | null;
   budgetMax?: number | null;
   budgetMin?: number | null;
+  status?: string;
 };
 
 function resolveApiUrl(path: string) {
@@ -60,6 +65,7 @@ export default function ProviderDashboardPage() {
   const [serviceAreas, setServiceAreas] = useState<string[]>([]);
   const [availableJobs, setAvailableJobs] = useState<JobItem[]>([]);
   const [nearbyJobs, setNearbyJobs] = useState<JobItem[]>([]);
+  const [assignedJobs, setAssignedJobs] = useState<JobItem[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -87,7 +93,7 @@ export default function ProviderDashboardPage() {
       setAuthorized(true);
 
       try {
-        const [meRes, availableRes, nearbyRes] = await Promise.all([
+        const [meRes, availableRes, nearbyRes, assignedRes] = await Promise.all([
           fetch(resolveApiUrl("/auth/me"), {
             headers: { Authorization: `Bearer ${token}` },
           }),
@@ -95,6 +101,9 @@ export default function ProviderDashboardPage() {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(resolveApiUrl("/jobs/provider/nearby"), {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(resolveApiUrl("/jobs/provider/my"), {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -113,6 +122,11 @@ export default function ProviderDashboardPage() {
         if (nearbyRes.ok) {
           const data = await nearbyRes.json();
           setNearbyJobs(Array.isArray(data) ? data : []);
+        }
+
+        if (assignedRes.ok) {
+          const data = await assignedRes.json();
+          setAssignedJobs(Array.isArray(data) ? data : []);
         }
       } finally {
         setLoading(false);
@@ -143,6 +157,20 @@ export default function ProviderDashboardPage() {
       avgBudget: averageBudget,
     };
   }, [availableJobs, nearbyJobs]);
+
+  const lifecycleCounts: JobLifecycleCounts = useMemo(() => {
+    const startedStatuses = new Set(["PENDING", "ACTIVE", "ACCEPTED"]);
+    const started = assignedJobs.filter((job) =>
+      startedStatuses.has((job.status || "").toUpperCase()),
+    ).length;
+    const inProgress = assignedJobs.filter(
+      (job) => (job.status || "").toUpperCase() === "IN_PROGRESS",
+    ).length;
+    const completed = assignedJobs.filter(
+      (job) => (job.status || "").toUpperCase() === "COMPLETED",
+    ).length;
+    return { started, inProgress, completed };
+  }, [assignedJobs]);
 
   if (!authorized) return null;
   if (loading) {
@@ -211,6 +239,12 @@ export default function ProviderDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <JobLifecycleOverview
+        counts={lifecycleCounts}
+        title="Assigned Job Lifecycle"
+        subtitle="Jobs you are currently responsible for."
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

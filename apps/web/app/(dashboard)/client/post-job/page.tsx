@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MapPin,
@@ -36,6 +36,7 @@ export default function PostJobPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const preferredProvider = useMemo(() => {
     const id = searchParams.get("preferredProviderId") || "";
@@ -227,10 +228,21 @@ export default function PostJobPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setFormData((prev) => ({
-      ...prev,
-      photos: [...prev.photos, ...files.slice(0, 5)], // Limit to 5 files
-    }));
+    setFormData((prev) => {
+      const next = [...prev.photos, ...files];
+      if (next.length > 5) {
+        toast({
+          title: "Photo limit reached",
+          description: "You can upload up to 5 photos per job.",
+          variant: "destructive",
+        });
+      }
+      return {
+        ...prev,
+        photos: next.slice(0, 5),
+      };
+    });
+    e.target.value = "";
   };
 
   return (
@@ -517,9 +529,10 @@ export default function PostJobPage() {
                   multiple
                   accept="image/*"
                   onChange={handleFileChange}
+                  ref={fileInputRef}
                   className="hidden"
                 />
-                <label htmlFor="photos" className="cursor-pointer">
+                <div className="cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                   <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <div className="text-lg font-medium text-gray-700">
                     Click to upload photos
@@ -527,10 +540,18 @@ export default function PostJobPage() {
                   <div className="text-sm text-gray-500 mt-2">
                     Upload up to 5 photos of the problem area
                   </div>
-                  <Button type="button" variant="outline" className="mt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-4"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      fileInputRef.current?.click();
+                    }}
+                  >
                     Choose Files
                   </Button>
-                </label>
+                </div>
               </div>
 
               {formData.photos.length > 0 && (

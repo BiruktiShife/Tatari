@@ -217,6 +217,19 @@ export default function ProviderReviewsPage() {
         }),
       });
       if (res.ok) {
+        setPendingFeedback((prev) =>
+          prev.filter((pending) => pending.jobId !== item.jobId),
+        );
+        setFeedbackRatings((prev) => {
+          const next = { ...prev };
+          delete next[item.jobId];
+          return next;
+        });
+        setFeedbackComments((prev) => {
+          const next = { ...prev };
+          delete next[item.jobId];
+          return next;
+        });
         await loadReviews();
       }
     } finally {
