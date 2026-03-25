@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Search,
   Filter,
@@ -138,6 +139,15 @@ function statusLabel(status?: string) {
   return key.charAt(0) + key.slice(1).toLowerCase();
 }
 
+function formatCsvValue(value: unknown) {
+  if (value == null) return "";
+  const str = String(value);
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 export default function AdminJobsPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -251,22 +261,79 @@ export default function AdminJobsPage() {
 
   const visibleJobs = useMemo(() => jobs, [jobs]);
 
+  const handleExportJobs = () => {
+    if (!jobs.length) {
+      toast({
+        title: "No jobs to export",
+        description: "Try adjusting filters to include more jobs.",
+      });
+      return;
+    }
+
+    const headers = [
+      "Job ID",
+      "Title",
+      "Status",
+      "Category",
+      "Timeline",
+      "Location",
+      "Created At",
+      "Budget",
+      "Client",
+      "Provider",
+    ];
+
+    const rows = jobs.map((job) => [
+      job.id,
+      job.title,
+      statusLabel(job.status),
+      job.category || "",
+      job.timeline || "",
+      job.location || "",
+      job.createdAt || "",
+      formatBudget(job),
+      job.client?.name || "",
+      job.provider?.name || "",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map(formatCsvValue).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    link.download = `jobs-export-${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Jobs Management</h1>
-          <p className="text-gray-600 mt-2">
-            Monitor and manage all platform jobs
-          </p>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Jobs Management</h1>
+            <p className="text-slate-200 mt-2">
+              Monitor and manage all platform jobs.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            className="text-slate-900"
+            onClick={handleExportJobs}
+          >
+            <Briefcase className="h-4 w-4 mr-2" />
+            Export Jobs
+          </Button>
         </div>
-        <Button variant="outline">
-          <Briefcase className="h-4 w-4 mr-2" />
-          Export Jobs
-        </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -276,9 +343,9 @@ export default function AdminJobsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -293,7 +360,7 @@ export default function AdminJobsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -308,7 +375,7 @@ export default function AdminJobsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{stats.active}</div>
@@ -336,7 +403,8 @@ export default function AdminJobsPage() {
       </div>
 
       <Card>
-        <Table>
+        <div className="overflow-x-auto">
+          <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow>
               <TableHead>Job Details</TableHead>
@@ -415,9 +483,11 @@ export default function AdminJobsPage() {
                     <TableCell className="font-bold">{formatBudget(job)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/admin/jobs/${job.id}`}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Link>
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -457,7 +527,8 @@ export default function AdminJobsPage() {
               </TableRow>
             )}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </Card>
     </div>
   );

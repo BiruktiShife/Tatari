@@ -98,19 +98,20 @@ export default function ProviderEarningsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Earnings</h1>
-          <p className="text-gray-600 mt-2">
-            Track your earnings and manage payouts
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export Statement
-          </Button>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Earnings</h1>
+            <p className="text-slate-200 mt-2">
+              Track your earnings and manage payouts.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" className="text-slate-900">
+              <Download className="h-4 w-4 mr-2" />
+              Export Statement
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -276,7 +277,7 @@ export default function ProviderEarningsPage() {
 
       {/* Transactions Tabs */}
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-8">
+        <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="all">All Transactions</TabsTrigger>
           <TabsTrigger value="earnings">Earnings</TabsTrigger>
           <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
@@ -284,11 +285,11 @@ export default function ProviderEarningsPage() {
 
         <TabsContent value="all">
           <Card>
-            <div className="p-6 border-b flex items-center justify-between">
+            <div className="p-6 border-b flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="font-semibold">Recent Transactions</div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                 <Select value={timeRange} onValueChange={setTimeRange}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <Calendar className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Time Range" />
                   </SelectTrigger>
@@ -299,7 +300,7 @@ export default function ProviderEarningsPage() {
                   </SelectContent>
                 </Select>
                 <Select>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Filter" />
                   </SelectTrigger>
@@ -311,52 +312,54 @@ export default function ProviderEarningsPage() {
                 </Select>
               </div>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Transaction ID</TableHead>
-                  <TableHead>Job / Description</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell className="font-mono text-sm">{tx.id}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{tx.job}</div>
-                      <div className="text-sm text-gray-500">{tx.client}</div>
-                    </TableCell>
-                    <TableCell>{tx.date}</TableCell>
-                    <TableCell className="font-bold">{tx.amount}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          tx.status === "paid" || tx.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }
-                      >
-                        {tx.status === "paid" || tx.status === "completed" ? (
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                        ) : (
-                          <Clock className="h-3 w-3 mr-1" />
-                        )}
-                        {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[720px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Transaction ID</TableHead>
+                    <TableHead>Job / Description</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="font-mono text-sm">{tx.id}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{tx.job}</div>
+                        <div className="text-sm text-gray-500">{tx.client}</div>
+                      </TableCell>
+                      <TableCell>{tx.date}</TableCell>
+                      <TableCell className="font-bold">{tx.amount}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            tx.status === "paid" || tx.status === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }
+                        >
+                          {tx.status === "paid" || tx.status === "completed" ? (
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                          ) : (
+                            <Clock className="h-3 w-3 mr-1" />
+                          )}
+                          {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>

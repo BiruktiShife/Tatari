@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
@@ -246,8 +247,8 @@ export default function ClientMessagesPage() {
         </p>
       </div>
 
-      <div className="h-[calc(100vh-280px)] min-h-[520px] flex border rounded-xl overflow-hidden bg-white">
-        <aside className="w-full md:w-80 border-r bg-slate-50/60">
+      <div className="min-h-[520px] md:h-[calc(100vh-280px)] flex flex-col md:flex-row border rounded-xl overflow-hidden bg-white">
+        <aside className="w-full md:w-80 md:border-r border-b md:border-b-0 bg-slate-50/60">
           <div className="p-3 border-b bg-white">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -260,7 +261,7 @@ export default function ClientMessagesPage() {
             </div>
           </div>
 
-          <div className="overflow-y-auto h-[calc(100vh-355px)]">
+          <div className="overflow-y-auto md:h-[calc(100vh-355px)] max-h-[320px] md:max-h-none">
             {loadingConversations ? (
               <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
             ) : filteredConversations.length ? (
@@ -308,7 +309,7 @@ export default function ClientMessagesPage() {
           </div>
         </aside>
 
-        <section className="flex-1 flex flex-col">
+        <section className="flex-1 flex flex-col min-h-[360px]">
           {selected ? (
             <>
               <header className="p-4 border-b flex items-center justify-between bg-white">
@@ -333,8 +334,24 @@ export default function ClientMessagesPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Job Details</DropdownMenuItem>
-                    <DropdownMenuItem>View Provider Profile</DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/client/jobs/${selected.jobId}`}>
+                        View Job Details
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={
+                          selected.otherUserId
+                            ? `/client/providers?providerId=${encodeURIComponent(
+                                selected.otherUserId,
+                              )}`
+                            : "/client/providers"
+                        }
+                      >
+                        View Provider Profile
+                      </Link>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </header>

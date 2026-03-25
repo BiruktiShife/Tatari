@@ -76,7 +76,7 @@ export default function ProviderServiceAreaPage() {
           fetch(resolveApiUrl("/auth/me"), {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(resolveApiUrl("/jobs/provider/available"), {
+          fetch(resolveApiUrl("/jobs/provider/nearby"), {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -256,7 +256,7 @@ export default function ProviderServiceAreaPage() {
 
             <div>
               <Label className="mb-2 block">Add New Area</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   placeholder="Type an area or district"
                   value={newArea}

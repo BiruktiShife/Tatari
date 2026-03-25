@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search,
   Filter,
@@ -10,9 +11,7 @@ import {
   CheckCircle,
   Clock,
   Sparkles,
-  Users,
   BriefcaseBusiness,
-  HandCoins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +89,7 @@ function resolveApiUrl(path: string) {
 }
 
 export default function FindProvidersPage() {
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [categories, setCategories] = useState<string[]>(["all"]);
@@ -114,6 +114,7 @@ export default function FindProvidersPage() {
   const [savedProviderIds, setSavedProviderIds] = useState<string[]>([]);
   const [profileProvider, setProfileProvider] = useState<Provider | null>(null);
   const [contactProvider, setContactProvider] = useState<Provider | null>(null);
+  const providerIdFromQuery = searchParams.get("providerId");
 
   useEffect(() => {
     try {
@@ -133,6 +134,48 @@ export default function FindProvidersPage() {
   }, [savedProviderIds]);
 
   useEffect(() => {
+    if (!providerIdFromQuery) return;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+
+    const fetchProvider = async () => {
+      try {
+        const url = resolveApiUrl(`/auth/providers/${providerIdFromQuery}`);
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const hourlyRate = Math.max(0, Number(data.hourlyRate || 0));
+        const hourlyMin = Math.max(0, Math.round(hourlyRate * 0.85));
+        const hourlyMax = Math.max(hourlyMin, Math.round(hourlyRate * 1.15));
+        setProfileProvider({
+          id: data.id,
+          name: data.businessName || data.name || "Service Provider",
+          rating: Number(data.rating || 0),
+          reviews: Number(data.reviews || 0),
+          category: data.serviceCategory || "General Services",
+          hourlyMin,
+          hourlyMax,
+          location: data.location || "Not set",
+          distance: 0,
+          verified: data.verificationStatus === "VERIFIED",
+          completedJobs: Number(data.completedJobs || 0),
+          responseTime: data.responseTime || "Not set",
+          badges: Array.isArray(data.badges) ? data.badges : [],
+          description: data.bio || "Professional service provider on the platform.",
+          availability: data.availability || "Available Tomorrow",
+        });
+      } catch {
+        // ignore lookup errors for deep link
+      }
+    };
+
+    fetchProvider();
+  }, [providerIdFromQuery]);
+
+  useEffect(() => {
     const timeout = setTimeout(async () => {
       setLoading(true);
       setError("");
@@ -148,7 +191,8 @@ export default function FindProvidersPage() {
         query.set("maxRate", String(priceRange[1]));
         query.set("verifiedOnly", String(filters.verifiedOnly));
         query.set("availableNow", String(filters.availableNow));
-        if (filters.minRating > 0) query.set("minRating", String(filters.minRating));
+        if (filters.minRating > 0)
+          query.set("minRating", String(filters.minRating));
         query.set("sortBy", sortBy);
 
         const url = resolveApiUrl(`/auth/providers?${query.toString()}`);
@@ -177,7 +221,9 @@ export default function FindProvidersPage() {
           },
         );
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load providers");
+        setError(
+          err instanceof Error ? err.message : "Could not load providers",
+        );
         setProviders([]);
         setCategories(["all"]);
         setStats({ total: 0, verified: 0, avgRating: 0, avgRate: 0 });
@@ -192,7 +238,9 @@ export default function FindProvidersPage() {
   const toggleSaveProvider = (provider: Provider) => {
     const alreadySaved = savedProviderIds.includes(provider.id);
     setSavedProviderIds((prev) =>
-      alreadySaved ? prev.filter((id) => id !== provider.id) : [...prev, provider.id],
+      alreadySaved
+        ? prev.filter((id) => id !== provider.id)
+        : [...prev, provider.id],
     );
     toast({
       title: alreadySaved ? "Removed from saved providers" : "Provider saved",
@@ -213,52 +261,14 @@ export default function FindProvidersPage() {
           <div>
             <h1 className="text-3xl font-bold">Find Service Providers</h1>
             <p className="text-slate-200 mt-2">
-              Compare verified professionals, pricing, ratings, and response speed.
+              Compare verified professionals, pricing, ratings, and response
+              speed.
             </p>
           </div>
           <Button asChild variant="secondary" className="text-slate-900">
             <Link href="/client/post-job">Post a Job</Link>
           </Button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Total Providers</p>
-              <Users className="h-4 w-4 text-gray-400" />
-            </div>
-            <p className="text-3xl font-semibold mt-1">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Verified Pros</p>
-              <CheckCircle className="h-4 w-4 text-gray-400" />
-            </div>
-            <p className="text-3xl font-semibold mt-1">{stats.verified}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Average Rating</p>
-              <Star className="h-4 w-4 text-gray-400" />
-            </div>
-            <p className="text-3xl font-semibold mt-1">{stats.avgRating}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Avg Hourly Rate</p>
-              <HandCoins className="h-4 w-4 text-gray-400" />
-            </div>
-            <p className="text-3xl font-semibold mt-1">₵ {stats.avgRate}</p>
-          </CardContent>
-        </Card>
       </div>
 
       <Card>
@@ -274,7 +284,10 @@ export default function FindProvidersPage() {
               />
             </div>
             <div className="flex gap-3">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+              >
                 <SelectTrigger className="w-[190px]">
                   <BriefcaseBusiness className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Category" />
@@ -377,7 +390,9 @@ export default function FindProvidersPage() {
                     <Button
                       key={rating}
                       type="button"
-                      variant={filters.minRating === rating ? "default" : "outline"}
+                      variant={
+                        filters.minRating === rating ? "default" : "outline"
+                      }
                       className="w-full justify-start h-9"
                       onClick={() =>
                         setFilters((prev) => ({
@@ -417,21 +432,27 @@ export default function FindProvidersPage() {
                 <CardContent className="p-5">
                   <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center shrink-0">
-                      <span className="text-white text-xl font-bold">{provider.name.charAt(0)}</span>
+                      <span className="text-white text-xl font-bold">
+                        {provider.name.charAt(0)}
+                      </span>
                     </div>
 
                     <div className="flex-1">
                       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-lg font-semibold">{provider.name}</h3>
+                            <h3 className="text-lg font-semibold">
+                              {provider.name}
+                            </h3>
                             {provider.badges.map((badge) => (
                               <Badge key={badge} variant="secondary">
                                 {badge}
                               </Badge>
                             ))}
                           </div>
-                          <p className="text-gray-600 mt-1">{provider.description}</p>
+                          <p className="text-gray-600 mt-1">
+                            {provider.description}
+                          </p>
 
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-sm text-gray-600">
                             <div className="flex items-center gap-2">
@@ -443,12 +464,15 @@ export default function FindProvidersPage() {
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4" />
                               <span>
-                                {provider.location} | {provider.distance} km away
+                                {provider.location} | {provider.distance} km
+                                away
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <BriefcaseBusiness className="h-4 w-4" />
-                              <span>{provider.completedJobs} jobs completed</span>
+                              <span>
+                                {provider.completedJobs} jobs completed
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -486,7 +510,10 @@ export default function FindProvidersPage() {
                           >
                             View Profile
                           </Button>
-                          <Button size="sm" onClick={() => setContactProvider(provider)}>
+                          <Button
+                            size="sm"
+                            onClick={() => setContactProvider(provider)}
+                          >
                             Contact Provider
                           </Button>
                           <Button
@@ -498,7 +525,9 @@ export default function FindProvidersPage() {
                             }
                             onClick={() => toggleSaveProvider(provider)}
                           >
-                            {savedProviderIds.includes(provider.id) ? "Saved" : "Save"}
+                            {savedProviderIds.includes(provider.id)
+                              ? "Saved"
+                              : "Save"}
                           </Button>
                         </div>
                       </div>
@@ -512,7 +541,9 @@ export default function FindProvidersPage() {
           {!loading && !error && providers.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
-                <p className="text-gray-600">No providers match your current filters.</p>
+                <p className="text-gray-600">
+                  No providers match your current filters.
+                </p>
                 <Button
                   variant="outline"
                   className="mt-4"
@@ -542,7 +573,9 @@ export default function FindProvidersPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{profileProvider?.name || "Provider Profile"}</DialogTitle>
+            <DialogTitle>
+              {profileProvider?.name || "Provider Profile"}
+            </DialogTitle>
             <DialogDescription>
               Detailed provider information from your current search results.
             </DialogDescription>
@@ -558,8 +591,8 @@ export default function FindProvidersPage() {
                 {profileProvider.hourlyMin}-{profileProvider.hourlyMax}
               </div>
               <div>
-                <span className="text-gray-500">Rating:</span> {profileProvider.rating} (
-                {profileProvider.reviews} reviews)
+                <span className="text-gray-500">Rating:</span>{" "}
+                {profileProvider.rating} ({profileProvider.reviews} reviews)
               </div>
               <div>
                 <span className="text-gray-500">Location:</span>{" "}

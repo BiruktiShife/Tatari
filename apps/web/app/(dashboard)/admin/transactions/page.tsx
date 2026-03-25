@@ -106,28 +106,29 @@ export default function AdminTransactionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Transactions</h1>
-          <p className="text-gray-600 mt-2">
-            Monitor all platform transactions and fees
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button>
-            <DollarSign className="h-4 w-4 mr-2" />
-            Financial Report
-          </Button>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Transactions</h1>
+            <p className="text-slate-200 mt-2">
+              Monitor all platform transactions and fees.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" className="text-slate-900">
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button>
+              <DollarSign className="h-4 w-4 mr-2" />
+              Financial Report
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -137,9 +138,9 @@ export default function AdminTransactionsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Date Range" />
             </SelectTrigger>
@@ -151,7 +152,7 @@ export default function AdminTransactionsPage() {
             </SelectContent>
           </Select>
           <Select>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -166,7 +167,7 @@ export default function AdminTransactionsPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -215,7 +216,7 @@ export default function AdminTransactionsPage() {
 
       {/* Transactions Tabs */}
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-8">
+        <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="all">
             All Transactions ({mockTransactions.all.length})
           </TabsTrigger>
@@ -228,7 +229,8 @@ export default function AdminTransactionsPage() {
         {/* All Transactions Tab */}
         <TabsContent value="all">
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Transaction ID</TableHead>
@@ -283,14 +285,16 @@ export default function AdminTransactionsPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </Card>
         </TabsContent>
 
         {/* Pending Transactions Tab */}
         <TabsContent value="pending">
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[820px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Transaction ID</TableHead>
@@ -332,7 +336,8 @@ export default function AdminTransactionsPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>

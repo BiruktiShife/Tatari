@@ -101,6 +101,9 @@ export default function ProviderMessagesPage() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [conversationsError, setConversationsError] = useState<string | null>(
+    null,
+  );
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -108,6 +111,7 @@ export default function ProviderMessagesPage() {
   const loadConversations = async () => {
     if (!token) return;
     setLoadingConversations(true);
+    setConversationsError(null);
     try {
       const res = await fetch(resolveApiUrl("/messages/conversations"), {
         headers: { Authorization: `Bearer ${token}` },
@@ -118,6 +122,11 @@ export default function ProviderMessagesPage() {
       }
       const data = await res.json();
       setConversations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setConversations([]);
+      setConversationsError(
+        err instanceof Error ? err.message : "Failed to load conversations.",
+      );
     } finally {
       setLoadingConversations(false);
     }
@@ -261,8 +270,8 @@ export default function ProviderMessagesPage() {
         </p>
       </div>
 
-      <div className="h-[calc(100vh-280px)] min-h-[520px] flex border rounded-xl overflow-hidden bg-white">
-        <aside className="w-full md:w-80 border-r bg-slate-50/60">
+      <div className="min-h-[520px] md:h-[calc(100vh-280px)] flex flex-col md:flex-row border rounded-xl overflow-hidden bg-white">
+        <aside className="w-full md:w-80 md:border-r border-b md:border-b-0 bg-slate-50/60">
           <div className="p-3 border-b bg-white">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -275,9 +284,15 @@ export default function ProviderMessagesPage() {
             </div>
           </div>
 
-          <div className="overflow-y-auto h-[calc(100vh-355px)]">
+          <div className="overflow-y-auto md:h-[calc(100vh-355px)] max-h-[320px] md:max-h-none">
             {loadingConversations ? (
-              <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
+              <div className="p-4 text-sm text-gray-500">
+                Loading conversations...
+              </div>
+            ) : conversationsError ? (
+              <div className="p-4 text-sm text-red-600">
+                {conversationsError}
+              </div>
             ) : filteredConversations.length ? (
               filteredConversations.map((conv) => (
                 <button
@@ -319,7 +334,7 @@ export default function ProviderMessagesPage() {
           </div>
         </aside>
 
-        <section className="flex-1 flex flex-col">
+        <section className="flex-1 flex flex-col min-h-[360px]">
           {selected ? (
             <>
               <header className="p-4 border-b flex items-center justify-between bg-white">

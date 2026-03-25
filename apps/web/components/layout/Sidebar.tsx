@@ -11,7 +11,6 @@ import {
   DollarSign,
   Users,
   BarChart3,
-  Settings,
   MapPin,
   UserCheck,
   ClipboardCheck,
@@ -35,9 +34,9 @@ const CLIENT_NAV_ITEMS = [
     label: "Messages",
     icon: MessageSquare,
   },
+  { href: "/client/disputes/new", label: "Disputes", icon: Shield },
   { href: "/client/reviews", label: "Reviews", icon: Star },
   { href: "/client/payments", label: "Payments", icon: DollarSign },
-  { href: "/client/settings", label: "Settings", icon: Settings },
 ];
 
 const PROVIDER_NAV_ITEMS = [
@@ -58,6 +57,7 @@ const PROVIDER_NAV_ITEMS = [
     label: "Messages",
     icon: MessageSquare,
   },
+  { href: "/provider/disputes/new", label: "Disputes", icon: Shield },
   { href: "/provider/reviews", label: "My Reviews", icon: Star },
   { href: "/provider/earnings", label: "Earnings", icon: DollarSign },
   {
@@ -65,7 +65,6 @@ const PROVIDER_NAV_ITEMS = [
     label: "Service Area",
     icon: MapPin,
   },
-  { href: "/provider/settings", label: "Settings", icon: Settings },
 ];
 
 const ADMIN_NAV_ITEMS = [
@@ -79,8 +78,6 @@ const ADMIN_NAV_ITEMS = [
     icon: DollarSign,
   },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-
-  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 type SidebarCounts = {
@@ -142,9 +139,12 @@ export function Sidebar({ userType }: SidebarProps) {
         const token =
           typeof window !== "undefined" ? localStorage.getItem("token") : null;
         if (!token) return;
-        const res = await fetch(resolveApiUrl("/notifications/sidebar-counts"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          resolveApiUrl("/notifications/sidebar-counts"),
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         if (!res.ok) return;
         const data = await res.json();
         if (isMounted) {
@@ -267,11 +267,7 @@ export function Sidebar({ userType }: SidebarProps) {
                 >
                   <Icon size={18} />
                   <span className="flex-1">{item.label}</span>
-                  {badgeForItem[item.href] > 0 && (
-                    <span className="ml-auto rounded-full bg-red-500 text-white text-xs font-semibold px-2 py-0.5">
-                      {badgeForItem[item.href]}
-                    </span>
-                  )}
+                  {/* Badges removed per request */}
                 </Link>
               );
             })}

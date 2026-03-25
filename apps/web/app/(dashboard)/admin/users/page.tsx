@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Search,
   Filter,
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -38,6 +40,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 type AdminUser = {
@@ -67,6 +78,35 @@ type UsersResponse = {
     providers: number;
     pendingVerification: number;
   };
+};
+
+type NewUserForm = {
+  type: "client" | "provider";
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  address: string;
+  businessName: string;
+  serviceCategory: string;
+  experience: string;
+  hourlyRate: string;
+  serviceAreas: string;
+  bio: string;
+};
+
+type UserJob = {
+  id: string;
+  title: string;
+  status: string;
+  category?: string | null;
+  timeline?: string | null;
+  location?: string | null;
+  createdAt: string;
+  budgetType?: string | null;
+  budgetAmount?: number | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
 };
 
 const statusColors: Record<string, string> = {
@@ -107,6 +147,15 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString();
 }
 
+function formatCsvValue(value: unknown) {
+  if (value == null) return "";
+  const str = String(value);
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -123,6 +172,26 @@ export default function AdminUsersPage() {
   const [userTypeFilter, setUserTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [detailUser, setDetailUser] = useState<AdminUser | null>(null);
+  const [jobsUser, setJobsUser] = useState<AdminUser | null>(null);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [userJobs, setUserJobs] = useState<UserJob[]>([]);
+  const [addingUser, setAddingUser] = useState(false);
+  const [addUserLoading, setAddUserLoading] = useState(false);
+  const [newUser, setNewUser] = useState<NewUserForm>({
+    type: "client",
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    address: "",
+    businessName: "",
+    serviceCategory: "",
+    experience: "",
+    hourlyRate: "",
+    serviceAreas: "",
+    bio: "",
+  });
   const [stats, setStats] = useState<UsersResponse["stats"]>({
     total: 0,
     clients: 0,
@@ -258,28 +327,329 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleCreateSubaccount = async (user: AdminUser) => {
+    const bankCode = window.prompt("Chapa bank code (number):");
+    if (!bankCode) return;
+    const accountNumber = window.prompt("Account number:");
+    if (!accountNumber) return;
+    const accountName = window.prompt("Account name:");
+    if (!accountName) return;
+
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        toast({
+          title: "Not authenticated",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const res = await fetch(resolveApiUrl("/admin/chapa/subaccount"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          providerId: user.id,
+          bank_code: bankCode,
+          account_number: accountNumber,
+          account_name: accountName,
+          business_name: user.name,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data?.message || "Failed to create subaccount.";
+        throw new Error(message);
+      }
+
+      toast({
+        title:
+          data?.status === "exists"
+            ? "Subaccount already exists"
+            : "Subaccount created",
+        description: data?.subaccount_id
+          ? `ID: ${data.subaccount_id}`
+          : "Saved to provider profile.",
+      });
+    } catch (err) {
+      toast({
+        title: "Creation failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatBudget = (job: UserJob) => {
+    if (job.budgetType === "RANGE") {
+      const min = job.budgetMin ?? 0;
+      const max = job.budgetMax ?? 0;
+      return `₵ ${min}-${max}`;
+    }
+    if (job.budgetAmount != null) {
+      return job.budgetType === "HOURLY"
+        ? `₵ ${job.budgetAmount}/hr`
+        : `₵ ${job.budgetAmount}`;
+    }
+    return "Not set";
+  };
+
+  const handleViewJobs = async (user: AdminUser) => {
+    setJobsUser(user);
+    setJobsLoading(true);
+    setUserJobs([]);
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) throw new Error("Missing admin token. Please log in again.");
+
+      const res = await fetch(resolveApiUrl(`/admin/users/${user.id}/jobs`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to load user jobs.");
+      }
+      const data = await res.json();
+      setUserJobs(Array.isArray(data.jobs) ? data.jobs : []);
+    } catch (err) {
+      toast({
+        title: "Failed to load jobs",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  const handleExportUsers = () => {
+    if (!users.length) {
+      toast({
+        title: "No users to export",
+        description: "Try adjusting filters to include more users.",
+      });
+      return;
+    }
+
+    const headers = [
+      "User ID",
+      "Name",
+      "Email",
+      "Phone",
+      "Type",
+      "Status",
+      "Joined",
+      "Jobs",
+      "Rating",
+    ];
+
+    const rows = users.map((user) => [
+      user.id,
+      user.name,
+      user.email,
+      user.phone || "",
+      user.type,
+      user.status,
+      user.joined,
+      user.jobs,
+      user.rating ?? "",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map(formatCsvValue).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    link.download = `users-export-${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const resetNewUser = () => {
+    setNewUser({
+      type: "client",
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      address: "",
+      businessName: "",
+      serviceCategory: "",
+      experience: "",
+      hourlyRate: "",
+      serviceAreas: "",
+      bio: "",
+    });
+  };
+
+  const handleAddUser = async () => {
+    if (!newUser.name.trim() || !newUser.email.trim() || !newUser.phone.trim()) {
+      toast({
+        title: "Missing fields",
+        description: "Name, email, and phone are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!newUser.password || newUser.password.length < 8) {
+      toast({
+        title: "Weak password",
+        description: "Password must be at least 8 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newUser.type === "client" && !newUser.address.trim()) {
+      toast({
+        title: "Address required",
+        description: "Client address is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newUser.type === "provider") {
+      if (
+        !newUser.businessName.trim() ||
+        !newUser.serviceCategory.trim() ||
+        !newUser.experience.trim()
+      ) {
+        toast({
+          title: "Missing provider fields",
+          description: "Business name, category, and experience are required.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const rate = Number(newUser.hourlyRate);
+      if (!Number.isFinite(rate) || rate <= 0) {
+        toast({
+          title: "Invalid hourly rate",
+          description: "Hourly rate must be greater than 0.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const areas = newUser.serviceAreas
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean);
+      if (!areas.length) {
+        toast({
+          title: "Service areas required",
+          description: "Provide at least one service area.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    try {
+      setAddUserLoading(true);
+      const payload =
+        newUser.type === "client"
+          ? {
+              name: newUser.name.trim(),
+              email: newUser.email.trim(),
+              phone: newUser.phone.trim(),
+              password: newUser.password,
+              address: newUser.address.trim(),
+            }
+          : {
+              name: newUser.name.trim(),
+              email: newUser.email.trim(),
+              phone: newUser.phone.trim(),
+              password: newUser.password,
+              businessName: newUser.businessName.trim(),
+              serviceCategory: newUser.serviceCategory.trim(),
+              experience: newUser.experience.trim(),
+              hourlyRate: Number(newUser.hourlyRate),
+              serviceAreas: newUser.serviceAreas
+                .split(",")
+                .map((a) => a.trim())
+                .filter(Boolean),
+              bio: newUser.bio.trim() || undefined,
+            };
+
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        throw new Error("Missing admin token. Please log in again.");
+      }
+      const res = await fetch(resolveApiUrl("/admin/users"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          role: newUser.type === "client" ? "CLIENT" : "PROVIDER",
+          ...payload,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to create user.");
+      }
+
+      toast({ title: "User created" });
+      setAddingUser(false);
+      resetNewUser();
+      await fetchUsers();
+    } catch (err) {
+      toast({
+        title: "Create failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddUserLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Users Management</h1>
-          <p className="text-gray-600 mt-2">
-            Manage all platform users and providers
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Users className="h-4 w-4 mr-2" />
-            Export Users
-          </Button>
-          <Button>
-            <UserCheck className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Users Management</h1>
+            <p className="text-slate-200 mt-2">
+              Manage all platform users and providers.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              className="text-slate-900"
+              onClick={handleExportUsers}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Export Users
+            </Button>
+            <Button onClick={() => setAddingUser(true)}>
+              <UserCheck className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -289,9 +659,9 @@ export default function AdminUsersPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="User Type" />
             </SelectTrigger>
@@ -302,7 +672,7 @@ export default function AdminUsersPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -318,7 +688,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -366,7 +736,7 @@ export default function AdminUsersPage() {
       </div>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-8">
+        <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="all">All Users ({filtered.length})</TabsTrigger>
           <TabsTrigger value="clients">Clients ({clients.length})</TabsTrigger>
           <TabsTrigger value="providers">Providers ({providers.length})</TabsTrigger>
@@ -374,7 +744,8 @@ export default function AdminUsersPage() {
 
         <TabsContent value="all">
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
@@ -465,6 +836,14 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setDetailUser(user)}>
+                              View User Details
+                            </DropdownMenuItem>
+                            {user.type === "client" && (
+                              <DropdownMenuItem onClick={() => handleViewJobs(user)}>
+                                View Jobs
+                              </DropdownMenuItem>
+                            )}
                             {user.status === "pending_verification" || user.status === "pending" ? (
                               <DropdownMenuItem
                                 className="text-green-600"
@@ -473,6 +852,13 @@ export default function AdminUsersPage() {
                                 Approve Account
                               </DropdownMenuItem>
                             ) : null}
+                            {user.type === "provider" && (
+                              <DropdownMenuItem
+                                onClick={() => handleCreateSubaccount(user)}
+                              >
+                                Create Chapa Subaccount
+                              </DropdownMenuItem>
+                            )}
                             {user.type !== "admin" && (
                               <DropdownMenuItem
                                 className="text-red-600"
@@ -494,13 +880,15 @@ export default function AdminUsersPage() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </Card>
         </TabsContent>
 
         <TabsContent value="clients">
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
@@ -555,13 +943,15 @@ export default function AdminUsersPage() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </Card>
         </TabsContent>
 
         <TabsContent value="providers">
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Provider</TableHead>
@@ -620,10 +1010,299 @@ export default function AdminUsersPage() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={Boolean(detailUser)}
+        onOpenChange={(open) => !open && setDetailUser(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              Account information and activity summary.
+            </DialogDescription>
+          </DialogHeader>
+          {detailUser && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="text-gray-500">Name:</span> {detailUser.name}
+              </div>
+              <div>
+                <span className="text-gray-500">Email:</span> {detailUser.email}
+              </div>
+              <div>
+                <span className="text-gray-500">Phone:</span>{" "}
+                {detailUser.phone || "—"}
+              </div>
+              <div>
+                <span className="text-gray-500">Type:</span>{" "}
+                {detailUser.type === "provider"
+                  ? "Provider"
+                  : detailUser.type === "admin"
+                    ? "Admin"
+                    : "Client"}
+              </div>
+              <div>
+                <span className="text-gray-500">Status:</span>{" "}
+                {detailUser.status === "pending_verification"
+                  ? "Pending Verification"
+                  : detailUser.status.charAt(0).toUpperCase() +
+                    detailUser.status.slice(1)}
+              </div>
+              <div>
+                <span className="text-gray-500">Joined:</span>{" "}
+                {formatDate(detailUser.joined)}
+              </div>
+              <div>
+                <span className="text-gray-500">Jobs:</span>{" "}
+                {detailUser.jobs}
+              </div>
+              <div>
+                <span className="text-gray-500">Rating:</span>{" "}
+                {detailUser.rating != null ? detailUser.rating : "—"}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setDetailUser(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(jobsUser)}
+        onOpenChange={(open) => !open && setJobsUser(null)}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Jobs Posted</DialogTitle>
+            <DialogDescription>
+              {jobsUser?.name ? `Jobs created by ${jobsUser.name}.` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {jobsLoading ? (
+            <div className="text-sm text-gray-500">Loading jobs...</div>
+          ) : userJobs.length ? (
+            <div className="overflow-x-auto">
+              <Table className="min-w-[720px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {userJobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/admin/jobs/${job.id}`}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          {job.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{job.status}</TableCell>
+                      <TableCell>{job.category || "—"}</TableCell>
+                      <TableCell>{formatBudget(job)}</TableCell>
+                      <TableCell>{job.location || "—"}</TableCell>
+                      <TableCell>{formatDate(job.createdAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">
+              No jobs posted by this user.
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setJobsUser(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={addingUser}
+        onOpenChange={(open) => !open && setAddingUser(false)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+            <DialogDescription>
+              Create a client or provider account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="md:col-span-2">
+              <Label className="mb-2 block">User Type</Label>
+              <Select
+                value={newUser.type}
+                onValueChange={(value) =>
+                  setNewUser((prev) => ({
+                    ...prev,
+                    type: value as NewUserForm["type"],
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select user type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client">Client</SelectItem>
+                  <SelectItem value="provider">Provider</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="mb-2 block">Name</Label>
+              <Input
+                value={newUser.name}
+                onChange={(e) =>
+                  setNewUser((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label className="mb-2 block">Email</Label>
+              <Input
+                value={newUser.email}
+                onChange={(e) =>
+                  setNewUser((prev) => ({ ...prev, email: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label className="mb-2 block">Phone</Label>
+              <Input
+                value={newUser.phone}
+                onChange={(e) =>
+                  setNewUser((prev) => ({ ...prev, phone: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label className="mb-2 block">Password</Label>
+              <Input
+                type="password"
+                value={newUser.password}
+                onChange={(e) =>
+                  setNewUser((prev) => ({ ...prev, password: e.target.value }))
+                }
+              />
+            </div>
+
+            {newUser.type === "client" ? (
+              <div className="md:col-span-2">
+                <Label className="mb-2 block">Address</Label>
+                <Input
+                  value={newUser.address}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({ ...prev, address: e.target.value }))
+                  }
+                />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label className="mb-2 block">Business Name</Label>
+                  <Input
+                    value={newUser.businessName}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        businessName: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Service Category</Label>
+                  <Input
+                    value={newUser.serviceCategory}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        serviceCategory: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Experience</Label>
+                  <Input
+                    value={newUser.experience}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        experience: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Hourly Rate (ETB)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={newUser.hourlyRate}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        hourlyRate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="mb-2 block">
+                    Service Areas (comma-separated)
+                  </Label>
+                  <Input
+                    value={newUser.serviceAreas}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        serviceAreas: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="mb-2 block">Bio (optional)</Label>
+                  <Textarea
+                    value={newUser.bio}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({ ...prev, bio: e.target.value }))
+                    }
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddingUser(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddUser} disabled={addUserLoading}>
+              {addUserLoading ? "Creating..." : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

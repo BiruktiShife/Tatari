@@ -114,22 +114,24 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Payments</h1>
-          <p className="text-gray-600 mt-2">
-            Manage your payments, deposits, and transaction history
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button>
-            <Wallet className="h-4 w-4 mr-2" />
-            Add Funds
-          </Button>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Payments</h1>
+            <p className="text-slate-200 mt-2">
+              Manage your payments, deposits, and transaction history
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Button variant="secondary" className="w-full sm:w-auto text-slate-900">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button className="w-full sm:w-auto">
+              <Wallet className="h-4 w-4 mr-2" />
+              Add Funds
+            </Button>
+          </div>
         </div>
       </div>
 

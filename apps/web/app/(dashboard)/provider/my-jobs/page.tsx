@@ -308,21 +308,22 @@ export default function ProviderMyJobsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">My Jobs</h1>
-          <p className="text-gray-600 mt-2">
-            Track and manage all your jobs in one place
-          </p>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">My Jobs</h1>
+            <p className="text-slate-200 mt-2">
+              Track and manage all your jobs in one place.
+            </p>
+          </div>
+          <Button asChild variant="secondary" className="text-slate-900">
+            <Link href="/provider/jobs">Find New Jobs</Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/provider/jobs">Find New Jobs</Link>
-        </Button>
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -332,9 +333,9 @@ export default function ProviderMyJobsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -389,7 +390,7 @@ export default function ProviderMyJobsPage() {
 
       {/* Jobs Tabs */}
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-8">
+        <TabsList className="grid grid-cols-1 sm:grid-cols-3 mb-8">
           <TabsTrigger value="active">Active ({activeJobs.length})</TabsTrigger>
           <TabsTrigger value="pending">Pending ({pendingJobs.length})</TabsTrigger>
           <TabsTrigger value="completed">
@@ -557,6 +558,13 @@ function JobCard({
               >
                 <MessageSquare className="h-4 w-4 mr-1" />
                 Message Client
+              </Link>
+            </Button>
+          )}
+          {upperStatus === "COMPLETED" && (
+            <Button variant="outline" asChild>
+              <Link href={`/provider/disputes/new?jobId=${job.id}`}>
+                Raise Dispute
               </Link>
             </Button>
           )}

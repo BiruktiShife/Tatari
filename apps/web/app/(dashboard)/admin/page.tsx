@@ -188,11 +188,15 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Platform Overview</h1>
-        <p className="text-gray-600 mt-2">
-          Monitor and manage the Habesha Skills Hub platform
-        </p>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Platform Overview</h1>
+            <p className="text-slate-200 mt-2">
+              Monitor and manage the Habesha Skills Hub platform.
+            </p>
+          </div>
+        </div>
       </div>
 
       {loading ? (

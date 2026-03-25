@@ -248,13 +248,13 @@ export default function PostJobPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
         <h1 className="text-3xl font-bold">Post a New Job</h1>
-        <p className="text-gray-600 mt-2">
+        <p className="text-slate-200 mt-2">
           Describe what you need and get quotes from local professionals
         </p>
         {preferredProvider && (
-          <p className="text-sm text-emerald-700 mt-2">
+          <p className="text-sm text-emerald-200 mt-2">
             This job will be sent to {preferredProvider.name || "your provider"}.
           </p>
         )}

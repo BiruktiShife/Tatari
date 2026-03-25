@@ -225,9 +225,9 @@ export default function ClientDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
         <h1 className="text-3xl font-bold">Welcome back, {clientName}</h1>
-        <p className="text-gray-600 mt-2">
+        <p className="text-slate-200 mt-2">
           Find skilled professionals for your needs
         </p>
       </div>

@@ -43,10 +43,12 @@ type ProviderProfileApi = {
   experience?: string | null;
   bio?: string | null;
   hourlyRate?: number | null;
+  responseTime?: string | null;
   serviceAreas?: string[];
   verificationStatus?: string | null;
   rating?: number | null;
   reviews?: number | null;
+  chapaSubaccountId?: string | null;
 };
 
 type ProfileForm = {
@@ -57,10 +59,12 @@ type ProfileForm = {
   experience: string;
   bio: string;
   hourlyRate: number | null;
+  responseTime: string;
   businessName: string;
   serviceCategory: string;
   serviceAreas: string[];
   verificationStatus: string;
+  chapaSubaccountId: string;
 };
 
 function resolveApiUrl(path: string) {
@@ -94,10 +98,12 @@ function mapApiToForm(user: ProviderProfileApi): ProfileForm {
     experience: user.experience || "",
     bio: user.bio || "",
     hourlyRate: user.hourlyRate ?? null,
+    responseTime: user.responseTime || "",
     businessName: user.businessName || "",
     serviceCategory: user.serviceCategory || "",
     serviceAreas: user.serviceAreas || [],
     verificationStatus: (user.verificationStatus || "PENDING").toLowerCase(),
+    chapaSubaccountId: user.chapaSubaccountId || "",
   };
 }
 
@@ -172,9 +178,11 @@ export default function ProviderProfilePage() {
         experience: profile.experience,
         bio: profile.bio,
         hourlyRate: profile.hourlyRate,
+        responseTime: profile.responseTime,
         businessName: profile.businessName,
         serviceCategory: profile.serviceCategory,
         serviceAreas: profile.serviceAreas,
+        chapaSubaccountId: profile.chapaSubaccountId || undefined,
       };
 
       const res = await fetch(resolveApiUrl("/auth/me/provider-profile"), {
@@ -234,31 +242,38 @@ export default function ProviderProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">My Profile</h1>
-          <p className="text-gray-600 mt-2">
-            Manage your professional profile and services
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={handleCancel} disabled={saving}>
-                <X className="h-4 w-4 mr-2" />
-                Cancel
+      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">My Profile</h1>
+            <p className="text-slate-200 mt-2">
+              Manage your professional profile and services.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {isEditing ? (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="text-slate-900"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? "Saving..." : "Save Changes"}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Profile
-            </Button>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -353,8 +368,43 @@ export default function ProviderProfilePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-gray-400" />
-                    <span>Response: Not set</span>
+                    {isEditing ? (
+                      <Input
+                        value={profile.responseTime}
+                        onChange={(e) =>
+                          setProfile({
+                            ...profile,
+                            responseTime: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., 30 min"
+                      />
+                    ) : (
+                      <span>
+                        Response: {profile.responseTime || "Not set"}
+                      </span>
+                    )}
                   </div>
+                </div>
+
+                <div className="mt-4">
+                  <Label className="mb-2 block">Chapa Subaccount ID</Label>
+                  {isEditing ? (
+                    <Input
+                      value={profile.chapaSubaccountId}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          chapaSubaccountId: e.target.value,
+                        })
+                      }
+                      placeholder="ac2e6b5b-..."
+                    />
+                  ) : (
+                    <p className="text-gray-600">
+                      {profile.chapaSubaccountId || "Not set"}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-4">
@@ -369,6 +419,32 @@ export default function ProviderProfilePage() {
                   ) : (
                     <p className="text-gray-600">
                       {profile.serviceCategory || "Not set"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <Label className="mb-2 block">Hourly Rate (ETB)</Label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min={0}
+                      value={profile.hourlyRate ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const parsed = value === "" ? null : Number(value);
+                        setProfile({
+                          ...profile,
+                          hourlyRate: Number.isNaN(parsed) ? null : parsed,
+                        });
+                      }}
+                      placeholder="e.g., 250"
+                    />
+                  ) : (
+                    <p className="text-gray-600">
+                      {profile.hourlyRate != null
+                        ? `₵ ${profile.hourlyRate}/hr`
+                        : "Not set"}
                     </p>
                   )}
                 </div>
@@ -450,7 +526,7 @@ export default function ProviderProfilePage() {
       </div>
 
       <Tabs defaultValue="skills" className="w-full">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="skills">Skills & Expertise</TabsTrigger>
           <TabsTrigger value="services">Services & Pricing</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>

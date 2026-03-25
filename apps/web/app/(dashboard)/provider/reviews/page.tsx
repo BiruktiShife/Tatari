@@ -250,7 +250,7 @@ export default function ProviderReviewsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-3xl font-bold">{stats.avg.toFixed(1)}</div>
@@ -278,7 +278,7 @@ export default function ProviderReviewsPage() {
       </div>
 
       <Tabs defaultValue="received">
-        <TabsList className="grid grid-cols-2 mb-4">
+        <TabsList className="grid grid-cols-1 sm:grid-cols-2 mb-4">
           <TabsTrigger value="received">Reviews About Me</TabsTrigger>
           <TabsTrigger value="give">Give Client Feedback</TabsTrigger>
         </TabsList>

@@ -198,7 +198,7 @@ export default function ProviderJobsPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border bg-gradient-to-r from-slate-900 to-slate-700 text-white p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
               <Sparkles className="h-4 w-4" />
@@ -248,9 +248,9 @@ export default function ProviderJobsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[170px]">
+                <SelectTrigger className="w-full sm:w-[170px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
@@ -261,7 +261,7 @@ export default function ProviderJobsPage() {
                 </SelectContent>
               </Select>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-[190px]">
+                <SelectTrigger className="w-full sm:w-[190px]">
                   <Briefcase className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>

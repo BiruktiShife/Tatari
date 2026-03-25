@@ -73,6 +73,10 @@ function resolveJobsUrl() {
   return `/jobs`;
 }
 
+function resolveApiBase() {
+  return resolveJobsUrl().replace(/\/jobs$/, "");
+}
+
 function formatPostedAgo(createdAt?: string) {
   if (!createdAt) return "Recently";
   const postedAt = new Date(createdAt).getTime();
@@ -225,6 +229,56 @@ export default function MyJobsPage() {
     }
   };
 
+  const handlePayNow = async (jobId: string) => {
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        toast({
+          title: "Missing token",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const res = await fetch(`${resolveApiBase()}/payments/chapa/initialize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ jobId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data?.message || "Failed to initialize payment.";
+        throw new Error(message);
+      }
+      if (data?.status === "paid") {
+        toast({
+          title: "Payment already completed",
+          description: "This job is already paid.",
+        });
+        return;
+      }
+      if (data?.checkout_url) {
+        window.location.href = data.checkout_url as string;
+        return;
+      }
+      toast({
+        title: "Payment error",
+        description: "Missing checkout URL from payment provider.",
+        variant: "destructive",
+      });
+    } catch (err) {
+      toast({
+        title: "Payment failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 text-gray-900">
       <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
@@ -331,6 +385,7 @@ export default function MyJobsPage() {
                 key={job.id}
                 job={job}
                 onApproveCompletion={handleApproveCompletion}
+                onPayNow={handlePayNow}
                 approving={approvingJobId === job.id}
               />
             ))
@@ -346,6 +401,7 @@ export default function MyJobsPage() {
                 key={job.id}
                 job={job}
                 onApproveCompletion={handleApproveCompletion}
+                onPayNow={handlePayNow}
                 approving={approvingJobId === job.id}
               />
             ))
@@ -361,6 +417,7 @@ export default function MyJobsPage() {
                 key={job.id}
                 job={job}
                 onApproveCompletion={handleApproveCompletion}
+                onPayNow={handlePayNow}
                 approving={approvingJobId === job.id}
               />
             ))
@@ -386,10 +443,12 @@ function EmptyState({ message }: { message: string }) {
 function JobCard({
   job,
   onApproveCompletion,
+  onPayNow,
   approving,
 }: {
   job: JobItem;
   onApproveCompletion: (id: string) => void;
+  onPayNow: (id: string) => void;
   approving: boolean;
 }) {
   const statusKey = (job.status || "pending").toLowerCase();
@@ -436,9 +495,16 @@ function JobCard({
                 </Button>
               )}
               {statusKey === "in_progress" && (
-                <Button size="sm" asChild>
-                  <Link href={`/client/jobs/${job.id}/updates`}>View Updates</Link>
-                </Button>
+                <>
+                  <Button size="sm" asChild>
+                    <Link href={`/client/jobs/${job.id}/updates`}>
+                      View Updates
+                    </Link>
+                  </Button>
+                  <Button size="sm" onClick={() => onPayNow(job.id)}>
+                    Pay Now
+                  </Button>
+                </>
               )}
               {statusKey === "completed" && (
                 <Button
@@ -447,6 +513,13 @@ function JobCard({
                   disabled={approving}
                 >
                   {approving ? "Approving..." : "Approve & Release Payment"}
+                </Button>
+              )}
+              {statusKey === "completed" && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/client/disputes/new?jobId=${job.id}`}>
+                    Raise Dispute
+                  </Link>
                 </Button>
               )}
             </div>
