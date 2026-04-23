@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
@@ -37,7 +37,7 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -96,7 +96,11 @@ export default function LoginPage() {
         }),
       });
 
-      let data: any = null;
+      let data: {
+        message?: string;
+        accessToken?: string;
+        user?: { role?: string };
+      } | null = null;
       let rawText = "";
       try {
         data = await res.json();
@@ -110,10 +114,13 @@ export default function LoginPage() {
             ? data.message
             : rawText || "Login failed";
         if (res.status === 403) {
+          const fallback =
+            role === "provider"
+              ? "Please wait for approval."
+              : "Your account is awaiting approval. Please wait for an admin to approve you.";
           toast({
             title: "Approval pending",
-            description:
-              "Your account is awaiting approval. Please wait for an admin to approve you.",
+            description: message || fallback,
             variant: "destructive",
           });
           return;
@@ -148,16 +155,16 @@ export default function LoginPage() {
         description: "Redirecting to dashboard...",
       });
 
-      const role = data.user?.role;
+      const userRole = data.user?.role;
 
-      if (role === "ADMIN") {
+      if (userRole === "ADMIN") {
         router.push("/admin");
-      } else if (role === "PROVIDER") {
+      } else if (userRole === "PROVIDER") {
         router.push("/provider");
       } else {
         router.push("/client");
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Server error",
         description: "Unable to connect to server.",
@@ -269,7 +276,7 @@ export default function LoginPage() {
         {/* Sign up */}
         <div className="mt-6 pt-6 border-t">
           <p className="text-center text-sm text-gray-600">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href={`/register?role=${role}`}
               className="font-semibold text-blue-600 hover:underline"
@@ -280,5 +287,13 @@ export default function LoginPage() {
         </div>
       </CardContent>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

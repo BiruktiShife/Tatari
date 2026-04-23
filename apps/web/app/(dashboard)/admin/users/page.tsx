@@ -624,45 +624,50 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Users Management</h1>
-            <p className="text-slate-200 mt-2">
-              Manage all platform users and providers.
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              Users and providers
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+              Users Management
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Manage all platform users and providers from one clear, readable dashboard.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="secondary"
-              className="text-slate-900"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               onClick={handleExportUsers}
             >
-              <Users className="h-4 w-4 mr-2" />
+              <Users className="mr-2 h-4 w-4" />
               Export Users
             </Button>
-            <Button onClick={() => setAddingUser(true)}>
-              <UserCheck className="h-4 w-4 mr-2" />
+            <Button className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => setAddingUser(true)}>
+              <UserCheck className="mr-2 h-4 w-4" />
               Add User
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             placeholder="Search users by name, email, or phone..."
-            className="pl-10"
+            className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
           <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="User Type" />
             </SelectTrigger>
             <SelectContent>
@@ -672,8 +677,8 @@ export default function AdminUsersPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -688,55 +693,55 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">{stats.total}</div>
-                <div className="text-sm text-gray-600">Total Users</div>
+                <div className="text-2xl font-semibold text-slate-900">{stats.total}</div>
+                <div className="text-sm text-slate-600">Total Users</div>
               </div>
-              <Users className="h-8 w-8 text-blue-500" />
+              <Users className="h-8 w-8 text-sky-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">{stats.clients}</div>
-                <div className="text-sm text-gray-600">Clients</div>
+                <div className="text-2xl font-semibold text-slate-900">{stats.clients}</div>
+                <div className="text-sm text-slate-600">Clients</div>
               </div>
-              <Users className="h-8 w-8 text-green-500" />
+              <Users className="h-8 w-8 text-slate-500" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">{stats.providers}</div>
-                <div className="text-sm text-gray-600">Providers</div>
+                <div className="text-2xl font-semibold text-slate-900">{stats.providers}</div>
+                <div className="text-sm text-slate-600">Providers</div>
               </div>
-              <UserCheck className="h-8 w-8 text-purple-500" />
+              <UserCheck className="h-8 w-8 text-emerald-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">{stats.pendingVerification}</div>
-                <div className="text-sm text-gray-600">Pending Verification</div>
+                <div className="text-2xl font-semibold text-slate-900">{stats.pendingVerification}</div>
+                <div className="text-sm text-slate-600">Pending Verification</div>
               </div>
-              <UserX className="h-8 w-8 text-yellow-500" />
+              <UserX className="h-8 w-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3">
+      <Tabs defaultValue="all" className="w-full space-y-4">
+        <TabsList className="grid grid-cols-1 gap-2 bg-slate-100 p-1 sm:grid-cols-3">
           <TabsTrigger value="all">All Users ({filtered.length})</TabsTrigger>
           <TabsTrigger value="clients">Clients ({clients.length})</TabsTrigger>
           <TabsTrigger value="providers">Providers ({providers.length})</TabsTrigger>

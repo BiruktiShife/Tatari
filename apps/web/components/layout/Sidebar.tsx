@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -80,42 +80,9 @@ const ADMIN_NAV_ITEMS = [
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
-type SidebarCounts = {
-  messages: number;
-  reviews: number;
-  jobs: number;
-};
-
-function resolveApiUrl(path: string) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-
-  return path;
-}
-
 export function Sidebar({ userType }: SidebarProps) {
   const pathname = usePathname();
-  const { isMobileSidebarOpen } = useSidebar();
-  const [counts, setCounts] = useState<SidebarCounts>({
-    messages: 0,
-    reviews: 0,
-    jobs: 0,
-  });
+  const { isMobileSidebarOpen, closeMobileSidebar } = useSidebar();
 
   const getNavItems = () => {
     switch (userType) {
@@ -132,108 +99,13 @@ export function Sidebar({ userType }: SidebarProps) {
 
   const navItems = getNavItems();
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadCounts = async () => {
-      try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        if (!token) return;
-        const res = await fetch(
-          resolveApiUrl("/notifications/sidebar-counts"),
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (isMounted) {
-          setCounts({
-            messages: Number(data?.messages || 0),
-            reviews: Number(data?.reviews || 0),
-            jobs: Number(data?.jobs || 0),
-          });
-        }
-      } catch {
-        // Silent fail for sidebar badges.
-      }
-    };
-
-    const refresh = () => loadCounts();
-    loadCounts();
-    const interval = setInterval(refresh, 30000);
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
-
-  const badgeForItem = useMemo(() => {
-    const mapping: Record<string, number> = {};
-    if (userType === "client") {
-      mapping["/client/messages"] = counts.messages;
-      mapping["/client/reviews"] = counts.reviews;
-      mapping["/client/jobs"] = counts.jobs;
-    }
-    if (userType === "provider") {
-      mapping["/provider/messages"] = counts.messages;
-      mapping["/provider/reviews"] = counts.reviews;
-      mapping["/provider/jobs"] = counts.jobs;
-    }
-    if (userType === "admin") {
-      mapping["/admin/jobs"] = counts.jobs;
-      mapping["/admin/disputes"] = 0;
-    }
-    return mapping;
-  }, [counts, userType]);
-
-  const handleBadgeClear = (href: string) => {
-    if (userType === "client") {
-      if (href === "/client/messages") {
-        setCounts((prev) => ({ ...prev, messages: 0 }));
-      }
-      if (href === "/client/reviews") {
-        setCounts((prev) => ({ ...prev, reviews: 0 }));
-      }
-      if (href === "/client/jobs") {
-        setCounts((prev) => ({ ...prev, jobs: 0 }));
-      }
-    }
-    if (userType === "provider") {
-      if (href === "/provider/messages") {
-        setCounts((prev) => ({ ...prev, messages: 0 }));
-      }
-      if (href === "/provider/reviews") {
-        setCounts((prev) => ({ ...prev, reviews: 0 }));
-      }
-      if (href === "/provider/jobs") {
-        setCounts((prev) => ({ ...prev, jobs: 0 }));
-      }
-    }
-    if (userType === "admin") {
-      if (href === "/admin/jobs") {
-        setCounts((prev) => ({ ...prev, jobs: 0 }));
-      }
-    }
-  };
-
   return (
     <>
       {/* Mobile overlay */}
       {isMobileSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => {}}
+          onClick={closeMobileSidebar}
         />
       )}
 
@@ -257,7 +129,6 @@ export function Sidebar({ userType }: SidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => handleBadgeClear(item.href)}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                     isActive

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Menu, X, User, MessageSquare, Star, Briefcase } from "lucide-react";
+import { Bell, Menu, X, MessageSquare, Star, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -145,7 +145,7 @@ export function Header({ userName, userType }: HeaderProps) {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, []);
+  }, [lastSeenSnapshot]);
 
   const notifications = useMemo<NotificationItem[]>(() => {
     const items: NotificationItem[] = [];
@@ -287,7 +287,7 @@ export function Header({ userName, userType }: HeaderProps) {
     if (totalNotifications === 0) return;
     setLastSeenSnapshot(counts);
     setUnseenCounts({ messages: 0, reviews: 0, jobs: 0 });
-  }, [isNotificationsOpen, totalNotifications]);
+  }, [counts, isNotificationsOpen, totalNotifications]);
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b bg-white">

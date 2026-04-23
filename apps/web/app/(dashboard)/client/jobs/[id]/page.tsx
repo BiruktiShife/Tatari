@@ -1,11 +1,29 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import statusColors from "../page"; // re‑use same colour maps
-import statusTextColor from "../page";
+const statusColors: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  active: "bg-blue-100 text-blue-800",
+  accepted: "bg-indigo-100 text-indigo-800",
+  in_progress: "bg-purple-100 text-purple-800",
+  completed: "bg-emerald-100 text-emerald-800",
+  cancelled: "bg-red-100 text-red-800",
+  expired: "bg-gray-100 text-gray-700",
+};
+
+const statusTextColor: Record<string, string> = {
+  pending: "text-amber-800",
+  active: "text-blue-800",
+  accepted: "text-indigo-800",
+  in_progress: "text-purple-800",
+  completed: "text-emerald-800",
+  cancelled: "text-red-700",
+  expired: "text-gray-700",
+};
 // simple type for job, may be extended
 interface JobDetail {
   id: string;
@@ -16,7 +34,16 @@ interface JobDetail {
   posted?: string;
   timeline?: string;
   price?: string;
+  photos?: string[];
 }
+
+type JobApi = JobDetail & {
+  price?: string | number;
+  budgetAmount?: number | null;
+  createdAt?: string;
+  created_at?: string;
+  photos?: string[];
+};
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -83,17 +110,18 @@ export default function JobDetailPage() {
             if (listRes.ok) {
               const listData = await listRes.json();
               const found = Array.isArray(listData)
-                ? listData.find((j: any) => j.id === id || j._id === id)
+                ? (listData as JobApi[]).find(
+                    (j) => j.id === id || (j as { _id?: string })._id === id,
+                  )
                 : null;
               if (found) {
                 console.log("fallback job data", found);
-                // normalize fields to match client expectations
-                const normalized = {
+                const normalized: JobDetail = {
                   ...found,
-                  price: found.price ?? found.budgetAmount,
-                  posted:
-                    found.posted || found.createdAt || found.created_at || "",
-                } as any;
+                  price: String(found.price ?? found.budgetAmount ?? ""),
+                  posted: found.posted || found.createdAt || found.created_at || "",
+                  photos: Array.isArray(found.photos) ? found.photos : [],
+                };
                 setJob(normalized);
                 return;
               }
@@ -103,21 +131,18 @@ export default function JobDetailPage() {
             `Failed to load job (${res.status} ${res.statusText}) ${text}`,
           );
         }
-        const data = await res.json();
+        const data: JobApi = await res.json();
         console.log("fetched job data", data);
-        const normalized = {
+        const normalized: JobDetail = {
           ...data,
-          price: (data as any).price ?? (data as any).budgetAmount,
-          posted:
-            (data as any).posted ||
-            (data as any).createdAt ||
-            (data as any).created_at ||
-            "",
-        } as any;
+          price: String(data.price ?? data.budgetAmount ?? ""),
+          posted: data.posted || data.createdAt || data.created_at || "",
+          photos: Array.isArray(data.photos) ? data.photos : [],
+        };
         setJob(normalized);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Job fetch error", e);
-        setError(e.message || "Error fetching job");
+        setError(e instanceof Error ? e.message : "Error fetching job");
         setJob(null);
       } finally {
         setLoading(false);
@@ -132,7 +157,7 @@ export default function JobDetailPage() {
 
   const statusKey = (job.status || "").toLowerCase();
 
-  const photos: string[] = (job as any).photos || [];
+  const photos: string[] = job.photos || [];
   const currentPhoto = photos[photoIndex] || null;
 
   const nextPhoto = () => {
@@ -148,10 +173,13 @@ export default function JobDetailPage() {
         {/* image column */}
         <div className="w-full lg:w-1/2 flex flex-col items-center">
           {currentPhoto ? (
-            <img
+            <Image
               src={currentPhoto}
               alt="job photo"
+              width={800}
+              height={600}
               className="object-cover rounded-lg max-h-96 w-full"
+              unoptimized
             />
           ) : (
             <div className="bg-gray-100 w-full h-64 flex items-center justify-center">
@@ -176,14 +204,9 @@ export default function JobDetailPage() {
           <Badge className={statusColors[statusKey] || ""}>{job.status}</Badge>
           {job.description && <p>{job.description}</p>}
           <div>Location: {job.location}</div>
-          <div>
-            Posted:{" "}
-            {formatDate(
-              job.posted || (job as any).createdAt || (job as any).created_at,
-            )}
-          </div>
+          <div>Posted: {formatDate(job.posted)}</div>
           <div>Timeline: {job.timeline}</div>
-          <div>Price: {job.price ?? (job as any).budgetAmount ?? "—"}</div>
+          <div>Price: {job.price || "—"}</div>
           <Button onClick={() => router.back()}>Back</Button>
         </div>
       </div>

@@ -87,16 +87,16 @@ type DisputesResponse = {
 };
 
 const priorityColors: Record<string, string> = {
-  high: "bg-red-100 text-red-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  low: "bg-blue-100 text-blue-800",
+  high: "border-rose-200 bg-rose-50 text-rose-700",
+  medium: "border-amber-200 bg-amber-50 text-amber-700",
+  low: "border-sky-200 bg-sky-50 text-sky-700",
 };
 
 const statusColors: Record<string, string> = {
-  open: "bg-yellow-100 text-yellow-800",
-  investigating: "bg-purple-100 text-purple-800",
-  resolved: "bg-green-100 text-green-800",
-  escalated: "bg-red-100 text-red-800",
+  open: "border-amber-200 bg-amber-50 text-amber-700",
+  investigating: "border-violet-200 bg-violet-50 text-violet-700",
+  resolved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  escalated: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
 function resolveApiUrl(path: string) {
@@ -333,31 +333,36 @@ export default function AdminDisputesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Disputes Management</h1>
-            <p className="text-slate-200 mt-2">
-              Review and resolve platform disputes.
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              Dispute resolution
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+              Disputes Management
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Review and resolve platform disputes in a cleaner, more readable view.
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             placeholder="Search disputes by title, user, or job..."
-            className="pl-10"
+            className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -368,8 +373,8 @@ export default function AdminDisputesPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -381,63 +386,63 @@ export default function AdminDisputesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">{stats.active}</div>
-                <div className="text-sm text-gray-600">Active Disputes</div>
+                <div className="text-2xl font-semibold text-slate-900">{stats.active}</div>
+                <div className="text-sm text-slate-600">Active Disputes</div>
               </div>
-              <AlertTriangle className="h-8 w-8 text-yellow-500" />
+              <AlertTriangle className="h-8 w-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-semibold text-slate-900">
                   {stats.resolvedThisMonth}
                 </div>
-                <div className="text-sm text-gray-600">Resolved This Month</div>
+                <div className="text-sm text-slate-600">Resolved This Month</div>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
+              <CheckCircle className="h-8 w-8 text-emerald-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-semibold text-slate-900">
                   {stats.avgResolutionDays}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-slate-600">
                   Avg. Resolution Time (days)
                 </div>
               </div>
-              <Clock className="h-8 w-8 text-blue-500" />
+              <Clock className="h-8 w-8 text-sky-600" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-semibold text-slate-900">
                   {stats.resolutionRate}%
                 </div>
-                <div className="text-sm text-gray-600">Resolution Rate</div>
+                <div className="text-sm text-slate-600">Resolution Rate</div>
               </div>
-              <Shield className="h-8 w-8 text-purple-500" />
+              <Shield className="h-8 w-8 text-violet-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="open" className="w-full">
-        <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-2">
+      <Tabs defaultValue="open" className="w-full space-y-4">
+        <TabsList className="grid grid-cols-1 gap-2 bg-slate-100 p-1 sm:grid-cols-2">
           <TabsTrigger value="open">
             Open Disputes ({openDisputes.length})
           </TabsTrigger>
@@ -447,7 +452,7 @@ export default function AdminDisputesPage() {
         </TabsList>
 
         <TabsContent value="open">
-          <Card>
+          <Card className="border-slate-200 shadow-sm">
             <div className="overflow-x-auto">
               <Table className="min-w-[980px]">
                 <TableHeader>
@@ -466,7 +471,7 @@ export default function AdminDisputesPage() {
                     <TableRow>
                       <TableCell
                         colSpan={7}
-                        className="text-center text-sm text-gray-500"
+                        className="text-center text-sm text-slate-500"
                       >
                         Loading disputes...
                       </TableCell>
@@ -487,21 +492,21 @@ export default function AdminDisputesPage() {
                         <TableRow key={dispute.id}>
                           <TableCell>
                             <div className="font-medium">{dispute.title}</div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-slate-500">
                               Case #{dispute.id}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <User size={14} className="text-gray-400" />
+                                <User size={14} className="text-slate-400" />
                                 <span className="text-sm">
                                   {formatUserType(dispute.raisedBy?.type)}:{" "}
                                   {dispute.raisedBy?.name || "—"}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <User size={14} className="text-gray-400" />
+                                <User size={14} className="text-slate-400" />
                                 <span className="text-sm">
                                   Against: {dispute.against?.name || "—"}
                                 </span>
@@ -513,26 +518,20 @@ export default function AdminDisputesPage() {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={
-                                priorityColors[dispute.priority] ||
-                                priorityColors.low
-                              }
-                            >
+                                className={`border ${priorityColors[dispute.priority] || priorityColors.low}`}
+                              >
                               {dispute.priority.toUpperCase()}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={
-                                statusColors[statusKey] ||
-                                "bg-gray-100 text-gray-700"
-                              }
-                            >
+                                className={`border ${statusColors[statusKey] || "border-slate-200 bg-slate-50 text-slate-700"}`}
+                              >
                               {formatStatus(dispute.status)}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
                               <Clock size={14} />
                               {formatPostedAgo(dispute.createdAt)}
                             </div>
@@ -616,7 +615,7 @@ export default function AdminDisputesPage() {
         </TabsContent>
 
         <TabsContent value="resolved">
-          <Card>
+          <Card className="border-slate-200 shadow-sm">
             <div className="overflow-x-auto">
               <Table className="min-w-[840px]">
                 <TableHeader>
@@ -633,7 +632,7 @@ export default function AdminDisputesPage() {
                     <TableRow>
                       <TableCell
                         colSpan={5}
-                        className="text-center text-sm text-gray-500"
+                        className="text-center text-sm text-slate-500"
                       >
                         Loading disputes...
                       </TableCell>
@@ -652,7 +651,7 @@ export default function AdminDisputesPage() {
                       <TableRow key={dispute.id}>
                         <TableCell>
                           <div className="font-medium">{dispute.title}</div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-slate-500">
                             Case #{dispute.id}
                           </div>
                         </TableCell>
@@ -660,7 +659,7 @@ export default function AdminDisputesPage() {
                           {dispute.resolution || "Resolved"}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2 text-sm">
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
                             <Clock size={14} />
                             Opened: {formatDate(dispute.createdAt)}
                           </div>
@@ -669,7 +668,7 @@ export default function AdminDisputesPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className="bg-green-100 text-green-800">
+                          <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Resolved
                           </Badge>
@@ -721,7 +720,7 @@ export default function AdminDisputesPage() {
                     <TableRow>
                       <TableCell
                         colSpan={5}
-                        className="text-center text-sm text-gray-500"
+                        className="text-center text-sm text-slate-500"
                       >
                         No resolved disputes found.
                       </TableCell>
@@ -738,52 +737,52 @@ export default function AdminDisputesPage() {
         open={Boolean(detailDispute)}
         onOpenChange={(open) => !open && setDetailDispute(null)}
       >
-        <DialogContent>
+        <DialogContent className="border-slate-200 bg-white text-slate-900">
           <DialogHeader>
             <DialogTitle>Dispute Details</DialogTitle>
             <DialogDescription>Case overview and context.</DialogDescription>
           </DialogHeader>
           {detailDispute && (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-sm text-slate-700">
               <div>
-                <span className="text-gray-500">Title:</span>{" "}
+                <span className="text-slate-500">Title:</span>{" "}
                 {detailDispute.title}
               </div>
               <div>
-                <span className="text-gray-500">Status:</span>{" "}
+                <span className="text-slate-500">Status:</span>{" "}
                 {formatStatus(detailDispute.status)}
               </div>
               <div>
-                <span className="text-gray-500">Priority:</span>{" "}
+                <span className="text-slate-500">Priority:</span>{" "}
                 {detailDispute.priority.toUpperCase()}
               </div>
               <div>
-                <span className="text-gray-500">Job:</span>{" "}
+                <span className="text-slate-500">Job:</span>{" "}
                 {detailDispute.job?.title || "—"}
               </div>
               <div>
-                <span className="text-gray-500">Raised by:</span>{" "}
+                <span className="text-slate-500">Raised by:</span>{" "}
                 {detailDispute.raisedBy?.name || "—"} (
                 {formatUserType(detailDispute.raisedBy?.type)})
               </div>
               <div>
-                <span className="text-gray-500">Against:</span>{" "}
+                <span className="text-slate-500">Against:</span>{" "}
                 {detailDispute.against?.name || "—"}
               </div>
               <div>
-                <span className="text-gray-500">Opened:</span>{" "}
+                <span className="text-slate-500">Opened:</span>{" "}
                 {formatDate(detailDispute.createdAt)}
               </div>
               <div>
-                <span className="text-gray-500">Resolved:</span>{" "}
+                <span className="text-slate-500">Resolved:</span>{" "}
                 {formatDate(detailDispute.resolvedAt)}
               </div>
               <div>
-                <span className="text-gray-500">Description:</span>{" "}
+                <span className="text-slate-500">Description:</span>{" "}
                 {detailDispute.description || "—"}
               </div>
               <div>
-                <span className="text-gray-500">Resolution:</span>{" "}
+                <span className="text-slate-500">Resolution:</span>{" "}
                 {detailDispute.resolution || "—"}
               </div>
             </div>
@@ -798,7 +797,7 @@ export default function AdminDisputesPage() {
         open={Boolean(resolveDispute)}
         onOpenChange={(open) => !open && setResolveDispute(null)}
       >
-        <DialogContent>
+        <DialogContent className="border-slate-200 bg-white text-slate-900">
           <DialogHeader>
             <DialogTitle>Resolve Dispute</DialogTitle>
             <DialogDescription>

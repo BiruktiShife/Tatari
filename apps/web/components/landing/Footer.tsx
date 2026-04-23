@@ -31,7 +31,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-gray-400 mb-6">
-              Ethiopia's leading platform connecting skilled professionals with
+              Ethiopia&apos;s leading platform connecting skilled professionals with
               clients who need their services.
             </p>
             <div className="flex gap-4">
@@ -133,7 +133,7 @@ export default function Footer() {
         <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
           <p>© {new Date().getFullYear()} Tatari Hub. All rights reserved.</p>
           <p className="mt-2 text-sm">
-            Empowering Ethiopia's workforce through technology
+            Empowering Ethiopia&apos;s workforce through technology
           </p>
         </div>
       </div>

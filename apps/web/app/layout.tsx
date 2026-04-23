@@ -17,6 +17,11 @@ export const metadata: Metadata = {
     "Connect with trusted professionals for home repairs, digital services, tutoring, and more across Ethiopia.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

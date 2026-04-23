@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
@@ -88,17 +88,11 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-export default function FindProvidersPage() {
+function FindProvidersContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [categories, setCategories] = useState<string[]>(["all"]);
-  const [stats, setStats] = useState({
-    total: 0,
-    verified: 0,
-    avgRating: 0,
-    avgRate: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -212,21 +206,12 @@ export default function FindProvidersPage() {
             ? data.categories
             : ["all"],
         );
-        setStats(
-          data.stats || {
-            total: 0,
-            verified: 0,
-            avgRating: 0,
-            avgRate: 0,
-          },
-        );
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Could not load providers",
         );
         setProviders([]);
         setCategories(["all"]);
-        setStats({ total: 0, verified: 0, avgRating: 0, avgRate: 0 });
       } finally {
         setLoading(false);
       }
@@ -251,45 +236,43 @@ export default function FindProvidersPage() {
   };
 
   return (
-    <div className="space-y-6 text-gray-900">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
-          <Sparkles className="h-4 w-4" />
-          Trusted Marketplace
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Find Service Providers</h1>
-            <p className="text-slate-200 mt-2">
-              Compare verified professionals, pricing, ratings, and response
-              speed.
+    <div className="space-y-6 text-slate-900">
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              <Sparkles className="h-4 w-4" />
+              Trusted Marketplace
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+              Find Service Providers
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Compare verified professionals, pricing, ratings, and response speed.
             </p>
           </div>
-          <Button asChild variant="secondary" className="text-slate-900">
+          <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
             <Link href="/client/post-job">Post a Job</Link>
           </Button>
         </div>
-      </div>
+      </section>
 
-      <Card>
+      <Card className="border-slate-200 shadow-sm">
         <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row gap-3">
+          <div className="flex flex-col gap-3 lg:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 placeholder="Search by name, category, skill, or location..."
-                className="pl-10"
+                className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <div className="flex gap-3">
-              <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <SelectTrigger className="w-[190px]">
-                  <BriefcaseBusiness className="h-4 w-4 mr-2" />
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:w-auto">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[190px]">
+                  <BriefcaseBusiness className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -301,8 +284,8 @@ export default function FindProvidersPage() {
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[190px]">
-                  <Filter className="h-4 w-4 mr-2" />
+                <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[190px]">
+                  <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -318,12 +301,12 @@ export default function FindProvidersPage() {
         </CardContent>
       </Card>
 
-      <div className="grid lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <Card>
-            <CardContent className="pt-6 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-4">
+        <div className="space-y-6 lg:col-span-1">
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="space-y-6 pt-6">
               <div className="space-y-3">
-                <h3 className="font-semibold">Hourly Rate</h3>
+                <h3 className="font-semibold text-slate-900">Hourly Rate</h3>
                 <div className="px-1">
                   <Slider
                     value={priceRange}
@@ -332,7 +315,7 @@ export default function FindProvidersPage() {
                     step={50}
                     className="my-4"
                   />
-                  <div className="flex justify-between text-sm text-gray-600">
+                  <div className="flex justify-between text-sm text-slate-600">
                     <span>₵ {priceRange[0]}</span>
                     <span>₵ {priceRange[1]}</span>
                   </div>
@@ -340,23 +323,17 @@ export default function FindProvidersPage() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="font-semibold">Provider Filters</h3>
+                <h3 className="font-semibold text-slate-900">Provider Filters</h3>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="verified"
                       checked={filters.verifiedOnly}
                       onCheckedChange={(checked) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          verifiedOnly: checked as boolean,
-                        }))
+                        setFilters((prev) => ({ ...prev, verifiedOnly: checked as boolean }))
                       }
                     />
-                    <Label
-                      htmlFor="verified"
-                      className="text-sm font-normal cursor-pointer flex items-center gap-2"
-                    >
+                    <Label htmlFor="verified" className="flex cursor-pointer items-center gap-2 text-sm font-normal">
                       <CheckCircle size={14} className="text-emerald-600" />
                       Verified Only
                     </Label>
@@ -366,17 +343,11 @@ export default function FindProvidersPage() {
                       id="available"
                       checked={filters.availableNow}
                       onCheckedChange={(checked) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          availableNow: checked as boolean,
-                        }))
+                        setFilters((prev) => ({ ...prev, availableNow: checked as boolean }))
                       }
                     />
-                    <Label
-                      htmlFor="available"
-                      className="text-sm font-normal cursor-pointer flex items-center gap-2"
-                    >
-                      <Clock size={14} className="text-blue-600" />
+                    <Label htmlFor="available" className="flex cursor-pointer items-center gap-2 text-sm font-normal">
+                      <Clock size={14} className="text-sky-600" />
                       Available Now
                     </Label>
                   </div>
@@ -384,22 +355,15 @@ export default function FindProvidersPage() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="font-semibold">Minimum Rating</h3>
+                <h3 className="font-semibold text-slate-900">Minimum Rating</h3>
                 <div className="space-y-2">
                   {[0, 3.5, 4.0, 4.5].map((rating) => (
                     <Button
                       key={rating}
                       type="button"
-                      variant={
-                        filters.minRating === rating ? "default" : "outline"
-                      }
-                      className="w-full justify-start h-9"
-                      onClick={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          minRating: rating,
-                        }))
-                      }
+                      variant={filters.minRating === rating ? "default" : "outline"}
+                      className="h-9 w-full justify-start"
+                      onClick={() => setFilters((prev) => ({ ...prev, minRating: rating }))}
                     >
                       {rating === 0 ? "Any Rating" : `${rating}+ Stars`}
                     </Button>
@@ -410,16 +374,16 @@ export default function FindProvidersPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-3 space-y-4">
+        <div className="space-y-4 lg:col-span-3">
           {loading ? (
-            <Card>
-              <CardContent className="py-12 text-center text-sm text-gray-500">
+            <Card className="border-slate-200">
+              <CardContent className="py-12 text-center text-sm text-slate-500">
                 Loading providers...
               </CardContent>
             </Card>
           ) : error ? (
-            <Card>
-              <CardContent className="py-12 text-center text-sm text-red-600">
+            <Card className="border-red-200 bg-red-50/80">
+              <CardContent className="py-12 text-center text-sm text-red-700">
                 {error}
               </CardContent>
             </Card>
@@ -427,36 +391,38 @@ export default function FindProvidersPage() {
             providers.map((provider) => (
               <Card
                 key={provider.id}
-                className="border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all"
+                className="border-slate-200 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
               >
                 <CardContent className="p-5">
-                  <div className="flex flex-col lg:flex-row lg:items-start gap-5">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center shrink-0">
-                      <span className="text-white text-xl font-bold">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 to-slate-700">
+                      <span className="text-xl font-bold text-white">
                         {provider.name.charAt(0)}
                       </span>
                     </div>
 
                     <div className="flex-1">
-                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+                      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
                         <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-lg font-semibold">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-semibold text-slate-900">
                               {provider.name}
                             </h3>
                             {provider.badges.map((badge) => (
-                              <Badge key={badge} variant="secondary">
+                              <Badge
+                                key={badge}
+                                variant="secondary"
+                                className="border-slate-200 bg-slate-100 text-slate-700"
+                              >
                                 {badge}
                               </Badge>
                             ))}
                           </div>
-                          <p className="text-gray-600 mt-1">
-                            {provider.description}
-                          </p>
+                          <p className="mt-1 text-slate-600">{provider.description}</p>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-sm text-gray-600">
+                          <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600 md:grid-cols-3">
                             <div className="flex items-center gap-2">
-                              <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                              <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                               <span>
                                 {provider.rating} ({provider.reviews} reviews)
                               </span>
@@ -464,31 +430,28 @@ export default function FindProvidersPage() {
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4" />
                               <span>
-                                {provider.location} | {provider.distance} km
-                                away
+                                {provider.location} | {provider.distance} km away
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <BriefcaseBusiness className="h-4 w-4" />
-                              <span>
-                                {provider.completedJobs} jobs completed
-                              </span>
+                              <span>{provider.completedJobs} jobs completed</span>
                             </div>
                           </div>
                         </div>
 
                         <div className="lg:text-right">
-                          <div className="text-2xl font-bold">
+                          <div className="text-2xl font-semibold text-slate-900">
                             ₵ {provider.hourlyMin}-{provider.hourlyMax}
                           </div>
-                          <div className="text-sm text-gray-500">per hour</div>
+                          <div className="text-sm text-slate-500">per hour</div>
                           <div className="mt-2">
                             <Badge
                               variant="outline"
                               className={
                                 provider.availability === "Available Now"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-blue-50 text-blue-700 border-blue-200"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border-sky-200 bg-sky-50 text-sky-700"
                               }
                             >
                               {provider.availability}
@@ -497,37 +460,34 @@ export default function FindProvidersPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="text-sm text-gray-600 flex items-center gap-2">
+                      <div className="mt-4 flex flex-col justify-between gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center">
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Clock className="h-4 w-4" />
                           <span>{provider.responseTime} avg. response</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             size="sm"
                             variant="outline"
+                            className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                             onClick={() => setProfileProvider(provider)}
                           >
                             View Profile
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => setContactProvider(provider)}
-                          >
+                          <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => setContactProvider(provider)}>
                             Contact Provider
                           </Button>
                           <Button
                             size="sm"
-                            variant={
+                            variant={savedProviderIds.includes(provider.id) ? "default" : "outline"}
+                            className={
                               savedProviderIds.includes(provider.id)
-                                ? "default"
-                                : "outline"
+                                ? ""
+                                : "border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                             }
                             onClick={() => toggleSaveProvider(provider)}
                           >
-                            {savedProviderIds.includes(provider.id)
-                              ? "Saved"
-                              : "Save"}
+                            {savedProviderIds.includes(provider.id) ? "Saved" : "Save"}
                           </Button>
                         </div>
                       </div>
@@ -539,14 +499,14 @@ export default function FindProvidersPage() {
           )}
 
           {!loading && !error && providers.length === 0 && (
-            <Card>
+            <Card className="border-slate-200">
               <CardContent className="py-12 text-center">
-                <p className="text-gray-600">
+                <p className="text-slate-600">
                   No providers match your current filters.
                 </p>
                 <Button
                   variant="outline"
-                  className="mt-4"
+                  className="mt-4 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                   onClick={() => {
                     setSearchQuery("");
                     setSelectedCategory("all");
@@ -567,91 +527,59 @@ export default function FindProvidersPage() {
         </div>
       </div>
 
-      <Dialog
-        open={Boolean(profileProvider)}
-        onOpenChange={(open) => !open && setProfileProvider(null)}
-      >
-        <DialogContent>
+      <Dialog open={Boolean(profileProvider)} onOpenChange={(open) => !open && setProfileProvider(null)}>
+        <DialogContent className="border-slate-200 bg-white text-slate-900">
           <DialogHeader>
-            <DialogTitle>
-              {profileProvider?.name || "Provider Profile"}
-            </DialogTitle>
-            <DialogDescription>
+            <DialogTitle>{profileProvider?.name || "Provider Profile"}</DialogTitle>
+            <DialogDescription className="text-slate-600">
               Detailed provider information from your current search results.
             </DialogDescription>
           </DialogHeader>
           {profileProvider && (
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-gray-500">Category:</span>{" "}
-                {profileProvider.category}
-              </div>
-              <div>
-                <span className="text-gray-500">Hourly Rate:</span> ₵{" "}
-                {profileProvider.hourlyMin}-{profileProvider.hourlyMax}
-              </div>
-              <div>
-                <span className="text-gray-500">Rating:</span>{" "}
-                {profileProvider.rating} ({profileProvider.reviews} reviews)
-              </div>
-              <div>
-                <span className="text-gray-500">Location:</span>{" "}
-                {profileProvider.location}
-              </div>
-              <div>
-                <span className="text-gray-500">Completed Jobs:</span>{" "}
-                {profileProvider.completedJobs}
-              </div>
-              <div>
-                <span className="text-gray-500">Description:</span>{" "}
-                {profileProvider.description}
-              </div>
+            <div className="space-y-3 text-sm text-slate-700">
+              <div><span className="text-slate-500">Category:</span> {profileProvider.category}</div>
+              <div><span className="text-slate-500">Hourly Rate:</span> ₵ {profileProvider.hourlyMin}-{profileProvider.hourlyMax}</div>
+              <div><span className="text-slate-500">Rating:</span> {profileProvider.rating} ({profileProvider.reviews} reviews)</div>
+              <div><span className="text-slate-500">Location:</span> {profileProvider.location}</div>
+              <div><span className="text-slate-500">Completed Jobs:</span> {profileProvider.completedJobs}</div>
+              <div><span className="text-slate-500">Description:</span> {profileProvider.description}</div>
             </div>
           )}
           <DialogFooter>
             <Button
               variant="outline"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               onClick={() => {
-                if (profileProvider) {
-                  setContactProvider(profileProvider);
-                }
+                if (profileProvider) setContactProvider(profileProvider);
                 setProfileProvider(null);
               }}
             >
               Contact Provider
             </Button>
-            <Button onClick={() => setProfileProvider(null)}>Close</Button>
+            <Button className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => setProfileProvider(null)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={Boolean(contactProvider)}
-        onOpenChange={(open) => !open && setContactProvider(null)}
-      >
-        <DialogContent>
+      <Dialog open={Boolean(contactProvider)} onOpenChange={(open) => !open && setContactProvider(null)}>
+        <DialogContent className="border-slate-200 bg-white text-slate-900">
           <DialogHeader>
-            <DialogTitle>
-              Contact {contactProvider?.name || "Provider"}
-            </DialogTitle>
-            <DialogDescription>
-              Start communication by opening messages for an existing job, or
-              post a new job request for this provider.
+            <DialogTitle>Contact {contactProvider?.name || "Provider"}</DialogTitle>
+            <DialogDescription className="text-slate-600">
+              Start communication by opening messages for an existing job, or post a new job request for this provider.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900">
               <Link href="/client/messages">Open Messages</Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
               <Link
                 href={
                   contactProvider
-                    ? `/client/post-job?preferredProviderId=${encodeURIComponent(
-                        contactProvider.id,
-                      )}&preferredProviderName=${encodeURIComponent(
-                        contactProvider.name,
-                      )}`
+                    ? `/client/post-job?preferredProviderId=${encodeURIComponent(contactProvider.id)}&preferredProviderName=${encodeURIComponent(contactProvider.name)}`
                     : "/client/post-job"
                 }
               >
@@ -662,5 +590,13 @@ export default function FindProvidersPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function FindProvidersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading providers...</div>}>
+      <FindProvidersContent />
+    </Suspense>
   );
 }

@@ -4,7 +4,7 @@ import React from "react";
 import { Star, Quote } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const testimonials = [
   {
@@ -46,8 +46,6 @@ const testimonials = [
 ];
 
 export default function Testimonials() {
-  const [activeIndex, setActiveIndex] = React.useState(0);
-
   return (
     <section id="testimonials" className="py-20 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -70,7 +68,7 @@ export default function Testimonials() {
               <CardContent className="p-8">
                 <Quote className="text-blue-100 mb-6" size={32} />
                 <p className="text-lg text-gray-700 mb-6 italic">
-                  "{testimonial.content}"
+                  &quot;{testimonial.content}&quot;
                 </p>
 
                 <div className="flex items-center justify-between">

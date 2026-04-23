@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -44,7 +44,7 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-export default function ClientDisputeNewPage() {
+function ClientDisputeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -163,25 +163,33 @@ export default function ClientDisputeNewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Submit a Dispute</h1>
-            <p className="text-slate-200 mt-2">
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              Support request
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+              Submit a Dispute
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
               Report an issue with a completed or active job.
             </p>
           </div>
-          <Button variant="secondary" className="text-slate-900">
+          <Button
+            variant="outline"
+            className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+          >
             <Shield className="h-4 w-4 mr-2" />
             Support Policy
           </Button>
         </div>
-      </div>
+      </section>
 
-      <Card>
+      <Card className="border-slate-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
+          <CardTitle className="flex items-center gap-2 text-slate-900">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
             Dispute Details
           </CardTitle>
         </CardHeader>
@@ -189,7 +197,7 @@ export default function ClientDisputeNewPage() {
           <div>
             <Label className="mb-2 block">Select Job</Label>
             <Select value={jobId} onValueChange={setJobId}>
-              <SelectTrigger>
+              <SelectTrigger className="border-slate-300 bg-white text-slate-900">
                 <SelectValue
                   placeholder={loading ? "Loading jobs..." : "Choose a job"}
                 />
@@ -205,8 +213,8 @@ export default function ClientDisputeNewPage() {
           </div>
 
           {selectedJob && (
-            <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="flex items-center gap-2 font-medium text-slate-800">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <div className="flex items-center gap-2 font-medium text-slate-900">
                 <BriefcaseBusiness className="h-4 w-4" />
                 {selectedJob.title}
               </div>
@@ -223,6 +231,7 @@ export default function ClientDisputeNewPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Work not completed as agreed"
+              className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
 
@@ -233,15 +242,24 @@ export default function ClientDisputeNewPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Provide dates, what went wrong, and expected resolution."
               rows={5}
+              className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
             />
           </div>
 
-          <Button onClick={handleSubmit} disabled={submitting}>
+          <Button onClick={handleSubmit} disabled={submitting} className="bg-slate-900 text-white hover:bg-slate-800">
             <FileText className="h-4 w-4 mr-2" />
             {submitting ? "Submitting..." : "Submit Dispute"}
           </Button>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ClientDisputeNewPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
+      <ClientDisputeContent />
+    </Suspense>
   );
 }

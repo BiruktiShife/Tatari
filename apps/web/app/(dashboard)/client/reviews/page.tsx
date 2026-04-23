@@ -150,63 +150,67 @@ export default function ClientReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-sm mb-3">
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
           <Sparkles className="h-4 w-4" />
           Feedback Center
         </div>
-        <h1 className="text-3xl font-bold">Reviews</h1>
-        <p className="text-slate-200 mt-2">
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
+          Reviews
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
           Rate completed jobs and help improve service quality.
         </p>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="pt-6">
+            <div className="text-3xl font-semibold text-slate-900">{averageRating.toFixed(1)}</div>
+            <div className="mt-1 text-sm text-slate-600">Average Rating Given</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="pt-6">
+            <div className="text-3xl font-semibold text-slate-900">{reviews.length}</div>
+            <div className="mt-1 text-sm text-slate-600">Reviews Submitted</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="pt-6">
+            <div className="text-3xl font-semibold text-slate-900">{pending.length}</div>
+            <div className="mt-1 text-sm text-slate-600">Pending Reviews</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold">{averageRating.toFixed(1)}</div>
-            <div className="text-sm text-gray-600 mt-1">Average Rating Given</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold">{reviews.length}</div>
-            <div className="text-sm text-gray-600 mt-1">Reviews Submitted</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-3xl font-bold">{pending.length}</div>
-            <div className="text-sm text-gray-600 mt-1">Pending Reviews</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="history">
-        <TabsList className="grid grid-cols-2 mb-4">
+      <Tabs defaultValue="history" className="space-y-4">
+        <TabsList className="grid grid-cols-1 gap-2 bg-slate-100 p-1 sm:grid-cols-2">
           <TabsTrigger value="history">My Reviews</TabsTrigger>
           <TabsTrigger value="pending">Pending Reviews</TabsTrigger>
         </TabsList>
 
         <TabsContent value="history" className="space-y-4">
           {loading ? (
-            <Card>
-              <CardContent className="p-6 text-sm text-gray-500">Loading reviews...</CardContent>
+            <Card className="border-slate-200">
+              <CardContent className="p-6 text-sm text-slate-500">Loading reviews...</CardContent>
             </Card>
           ) : reviews.length ? (
             reviews.map((review) => (
-              <Card key={review.id}>
+              <Card key={review.id} className="border-slate-200 shadow-sm">
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                      <div className="font-semibold">
+                      <div className="font-semibold text-slate-900">
                         {review.reviewee?.businessName || review.reviewee?.name || "Provider"}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-slate-500">
                         {review.job?.title || "Job"} • {formatDate(review.createdAt)}
                       </div>
                     </div>
-                    <Badge variant="outline">{review.rating} / 5</Badge>
+                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">
+                      {review.rating} / 5
+                    </Badge>
                   </div>
 
                   <div className="flex gap-1">
@@ -217,31 +221,31 @@ export default function ClientReviewsPage() {
                         className={
                           i <= review.rating
                             ? "text-yellow-500 fill-yellow-500"
-                            : "text-gray-300"
+                            : "text-slate-300"
                         }
                       />
                     ))}
                   </div>
 
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-slate-700">
                     {review.comment || "No comment provided."}
                   </p>
 
                   {review.response && (
-                    <div className="p-3 rounded-lg bg-slate-50 border">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <div className="text-sm font-medium flex items-center gap-2 mb-1">
                         <MessageSquare className="h-4 w-4" />
                         Provider Response
                       </div>
-                      <p className="text-sm text-gray-700">{review.response}</p>
+                      <p className="text-sm text-slate-700">{review.response}</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             ))
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center text-sm text-gray-500">
+            <Card className="border-slate-200">
+              <CardContent className="p-8 text-center text-sm text-slate-500">
                 No reviews submitted yet.
               </CardContent>
             </Card>
@@ -251,17 +255,17 @@ export default function ClientReviewsPage() {
         <TabsContent value="pending" className="space-y-4">
           {pending.length ? (
             pending.map((item) => (
-              <Card key={item.jobId}>
+              <Card key={item.jobId} className="border-slate-200 shadow-sm">
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                      <div className="font-semibold">{item.providerName || "Provider"}</div>
-                      <div className="text-sm text-gray-500 flex items-center gap-1">
+                      <div className="font-semibold text-slate-900">{item.providerName || "Provider"}</div>
+                      <div className="flex items-center gap-1 text-sm text-slate-500">
                         <Calendar className="h-3.5 w-3.5" />
                         {item.jobTitle} • Completed {formatDate(item.completedAt)}
                       </div>
                     </div>
-                    <Badge variant="secondary">
+                    <Badge variant="secondary" className="border border-amber-200 bg-amber-50 text-amber-700">
                       <Award className="h-3 w-3 mr-1" />
                       Awaiting review
                     </Badge>
@@ -283,7 +287,7 @@ export default function ClientReviewsPage() {
                             className={
                               i <= (ratings[item.jobId] || 5)
                                 ? "text-yellow-500 fill-yellow-500"
-                                : "text-gray-300"
+                                : "text-slate-300"
                             }
                           />
                         </button>
@@ -317,8 +321,8 @@ export default function ClientReviewsPage() {
               </Card>
             ))
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center text-sm text-gray-500">
+            <Card className="border-slate-200">
+              <CardContent className="p-8 text-center text-sm text-slate-500">
                 No pending reviews. You are all caught up.
               </CardContent>
             </Card>

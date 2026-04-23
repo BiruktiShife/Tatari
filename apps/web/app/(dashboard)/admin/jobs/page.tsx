@@ -8,7 +8,6 @@ import {
   Briefcase,
   Clock,
   MapPin,
-  DollarSign,
   User,
   AlertCircle,
   Eye,
@@ -70,13 +69,13 @@ type JobsResponse = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  active: "bg-blue-100 text-blue-800",
-  accepted: "bg-indigo-100 text-indigo-800",
-  in_progress: "bg-purple-100 text-purple-800",
-  completed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-  expired: "bg-gray-100 text-gray-700",
+  pending: "border-amber-200 bg-amber-50 text-amber-700",
+  active: "border-sky-200 bg-sky-50 text-sky-700",
+  accepted: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  in_progress: "border-violet-200 bg-violet-50 text-violet-700",
+  completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+  expired: "border-slate-200 bg-slate-50 text-slate-700",
 };
 
 function resolveApiUrl(path: string) {
@@ -314,39 +313,43 @@ export default function AdminJobsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Jobs Management</h1>
-            <p className="text-slate-200 mt-2">
-              Monitor and manage all platform jobs.
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              Job operations
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+              Jobs Management
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Monitor and manage all platform jobs in a cleaner, easier-to-read layout.
             </p>
           </div>
           <Button
-            variant="secondary"
-            className="text-slate-900"
+            className="bg-slate-900 text-white hover:bg-slate-800"
             onClick={handleExportJobs}
           >
-            <Briefcase className="h-4 w-4 mr-2" />
+            <Briefcase className="mr-2 h-4 w-4" />
             Export Jobs
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             placeholder="Search jobs by title, client, or location..."
-            className="pl-10"
+            className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -360,8 +363,8 @@ export default function AdminJobsPage() {
             </SelectContent>
           </Select>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -375,34 +378,34 @@ export default function AdminJobsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.active}</div>
-            <div className="text-sm text-gray-600">Active Jobs</div>
+            <div className="text-2xl font-semibold text-slate-900">{stats.active}</div>
+            <div className="text-sm text-slate-600">Active Jobs</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">₵ {stats.totalValue}</div>
-            <div className="text-sm text-gray-600">Total Value</div>
+            <div className="text-2xl font-semibold text-slate-900">₵ {stats.totalValue}</div>
+            <div className="text-sm text-slate-600">Total Value</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.pendingQuotes}</div>
-            <div className="text-sm text-gray-600">Pending Quotes</div>
+            <div className="text-2xl font-semibold text-slate-900">{stats.pendingQuotes}</div>
+            <div className="text-sm text-slate-600">Pending Quotes</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{stats.completionRate}%</div>
-            <div className="text-sm text-gray-600">Completion Rate</div>
+            <div className="text-2xl font-semibold text-slate-900">{stats.completionRate}%</div>
+            <div className="text-sm text-slate-600">Completion Rate</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-slate-200 shadow-sm">
         <div className="overflow-x-auto">
           <Table className="min-w-[980px]">
           <TableHeader>

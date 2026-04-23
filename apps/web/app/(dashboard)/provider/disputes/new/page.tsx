@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -45,7 +45,7 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-export default function ProviderDisputeNewPage() {
+function ProviderDisputeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -245,5 +245,13 @@ export default function ProviderDisputeNewPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ProviderDisputeNewPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>
+      <ProviderDisputeContent />
+    </Suspense>
   );
 }

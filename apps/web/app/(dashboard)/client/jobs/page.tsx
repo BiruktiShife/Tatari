@@ -370,7 +370,7 @@ export default function MyJobsPage() {
       </Card>
 
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-5">
+        <TabsList className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-5">
           <TabsTrigger value="active">Active ({activeJobs.length})</TabsTrigger>
           <TabsTrigger value="pending">Pending ({pendingJobs.length})</TabsTrigger>
           <TabsTrigger value="completed">Completed ({completedJobs.length})</TabsTrigger>

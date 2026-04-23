@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MapPin,
@@ -31,7 +31,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 
-export default function PostJobPage() {
+function PostJobContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -98,7 +98,7 @@ export default function PostJobPage() {
         try {
           new URL(apiUrl);
           url = `${apiUrl.replace(/\/$/, "")}/jobs`;
-        } catch (err) {
+        } catch {
           // Not an absolute URL — allow leading-relative paths like "/api"
           if (apiUrl.startsWith("/")) {
             url = `${apiUrl.replace(/\/$/, "")}/jobs`;
@@ -182,7 +182,7 @@ export default function PostJobPage() {
             title: "Sending request to API (dev)",
             description: `${url} — token ${token ? "present" : "missing"}`,
           });
-        } catch (e) {
+        } catch {
           // ignore toast failures in edge cases
         }
       }
@@ -209,7 +209,7 @@ export default function PostJobPage() {
         description: "Providers will start sending quotes shortly.",
       });
       router.push("/client/jobs");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Post job error", error);
       // Provide more actionable feedback for network/URL/CORS failures
       const isNetworkError =
@@ -219,7 +219,9 @@ export default function PostJobPage() {
         title: isNetworkError ? "Network request failed" : "Failed to post job",
         description: isNetworkError
           ? "Could not reach the API. Check NEXT_PUBLIC_API_URL, server status, and CORS settings."
-          : error?.message || "An unexpected error occurred.",
+          : error instanceof Error
+            ? error.message
+            : "An unexpected error occurred.",
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -247,26 +249,31 @@ export default function PostJobPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <h1 className="text-3xl font-bold">Post a New Job</h1>
-        <p className="text-slate-200 mt-2">
-          Describe what you need and get quotes from local professionals
-        </p>
-        {preferredProvider && (
-          <p className="text-sm text-emerald-200 mt-2">
-            This job will be sent to {preferredProvider.name || "your provider"}.
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="space-y-2">
+          <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+            Job request
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            Post a New Job
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Describe what you need and get quotes from local professionals.
           </p>
-        )}
-      </div>
+          {preferredProvider && (
+            <p className="text-sm font-medium text-emerald-700">
+              This job will be sent to {preferredProvider.name || "your provider"}.
+            </p>
+          )}
+        </div>
+      </section>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Job Details Card */}
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Job Details</CardTitle>
-            <CardDescription>
-              Be specific to get accurate quotes from providers
+            <CardTitle className="text-slate-900">Job Details</CardTitle>
+            <CardDescription className="text-slate-600">
+              Be specific to get accurate quotes from providers.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -278,9 +285,8 @@ export default function PostJobPage() {
                 id="title"
                 placeholder="e.g., Fix leaking kitchen sink"
                 value={formData.title}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, title: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
                 required
               />
             </div>
@@ -291,11 +297,9 @@ export default function PostJobPage() {
               </Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, category: value }))
-                }
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-300 bg-white text-slate-900">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -315,34 +319,28 @@ export default function PostJobPage() {
               <Textarea
                 id="description"
                 placeholder="Describe exactly what you need. Include details like:
-• What's broken or needs to be done
+• What&apos;s broken or needs to be done
 • Specific requirements
 • Materials needed (if any)
 • Any special considerations"
                 rows={6}
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                className="resize-none"
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                className="resize-none border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
                 required
               />
-              <p className="text-sm text-gray-500">
-                The more details you provide, the better quotes you'll receive.
+              <p className="text-sm text-slate-500">
+                The more details you provide, the better quotes you&apos;ll receive.
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Budget & Timeline Card */}
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Budget & Timeline</CardTitle>
-            <CardDescription>
-              Set your budget and when you need the job done
+            <CardTitle className="text-slate-900">Budget & Timeline</CardTitle>
+            <CardDescription className="text-slate-600">
+              Set your budget and when you need the job done.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -353,7 +351,7 @@ export default function PostJobPage() {
                 onValueChange={(value: "fixed" | "hourly") =>
                   setFormData((prev) => ({ ...prev, budgetType: value }))
                 }
-                className="flex space-x-4"
+                className="flex flex-col space-y-2 sm:flex-row sm:space-x-4 sm:space-y-0"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="fixed" id="fixed" />
@@ -383,21 +381,14 @@ export default function PostJobPage() {
                   : "Hourly Rate (ETB/hour)"}
               </Label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <DollarSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="budgetAmount"
                   type="number"
-                  placeholder={
-                    formData.budgetType === "fixed" ? "e.g., 5000" : "e.g., 250"
-                  }
-                  className="pl-10"
+                  placeholder={formData.budgetType === "fixed" ? "e.g., 5000" : "e.g., 250"}
+                  className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
                   value={formData.budgetAmount}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      budgetAmount: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, budgetAmount: e.target.value }))}
                 />
               </div>
             </div>
@@ -415,14 +406,10 @@ export default function PostJobPage() {
                   <RadioGroupItem value="urgent" id="urgent" />
                   <Label htmlFor="urgent" className="font-normal">
                     <div className="flex items-center gap-2">
-                      <AlertCircle size={16} className="text-red-500" />
+                      <AlertCircle size={16} className="text-rose-500" />
                       <div>
-                        <div className="font-medium">
-                          Urgent (Today/Tomorrow)
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Need it done ASAP
-                        </div>
+                        <div className="font-medium text-slate-900">Urgent (Today/Tomorrow)</div>
+                        <div className="text-sm text-slate-500">Need it done ASAP</div>
                       </div>
                     </div>
                   </Label>
@@ -431,12 +418,10 @@ export default function PostJobPage() {
                   <RadioGroupItem value="within_week" id="within_week" />
                   <Label htmlFor="within_week" className="font-normal">
                     <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-blue-500" />
+                      <Calendar size={16} className="text-sky-500" />
                       <div>
-                        <div className="font-medium">Within This Week</div>
-                        <div className="text-sm text-gray-500">
-                          Flexible within 7 days
-                        </div>
+                        <div className="font-medium text-slate-900">Within This Week</div>
+                        <div className="text-sm text-slate-500">Flexible within 7 days</div>
                       </div>
                     </div>
                   </Label>
@@ -445,12 +430,10 @@ export default function PostJobPage() {
                   <RadioGroupItem value="flexible" id="flexible" />
                   <Label htmlFor="flexible" className="font-normal">
                     <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-green-500" />
+                      <Clock size={16} className="text-emerald-500" />
                       <div>
-                        <div className="font-medium">Flexible</div>
-                        <div className="text-sm text-gray-500">
-                          No specific deadline
-                        </div>
+                        <div className="font-medium text-slate-900">Flexible</div>
+                        <div className="text-sm text-slate-500">No specific deadline</div>
                       </div>
                     </div>
                   </Label>
@@ -460,12 +443,11 @@ export default function PostJobPage() {
           </CardContent>
         </Card>
 
-        {/* Location & Photos Card */}
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Location & Photos</CardTitle>
-            <CardDescription>
-              Help providers understand the job better
+            <CardTitle className="text-slate-900">Location & Photos</CardTitle>
+            <CardDescription className="text-slate-600">
+              Help providers understand the job better.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -478,18 +460,14 @@ export default function PostJobPage() {
               </Label>
               <Select
                 value={formData.location}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, location: value }))
-                }
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, location: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-300 bg-white text-slate-900">
                   <SelectValue placeholder="Select your area" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bole">Bole, Addis Ababa</SelectItem>
-                  <SelectItem value="kasanchis">
-                    Kasanchis, Addis Ababa
-                  </SelectItem>
+                  <SelectItem value="kasanchis">Kasanchis, Addis Ababa</SelectItem>
                   <SelectItem value="mexico">Mexico, Addis Ababa</SelectItem>
                   <SelectItem value="piassa">Piassa, Addis Ababa</SelectItem>
                   <SelectItem value="merkato">Merkato, Addis Ababa</SelectItem>
@@ -505,12 +483,8 @@ export default function PostJobPage() {
                   id="address"
                   placeholder="Enter your full address"
                   value={formData.address}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      address: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
+                  className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
                 />
               </div>
             )}
@@ -522,7 +496,7 @@ export default function PostJobPage() {
                   <span>Upload Photos (Optional)</span>
                 </div>
               </Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div className="rounded-lg border-2 border-dashed border-slate-300 p-8 text-center">
                 <input
                   type="file"
                   id="photos"
@@ -533,17 +507,17 @@ export default function PostJobPage() {
                   className="hidden"
                 />
                 <div className="cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <div className="text-lg font-medium text-gray-700">
+                  <Upload className="mx-auto mb-4 h-12 w-12 text-slate-400" />
+                  <div className="text-lg font-medium text-slate-700">
                     Click to upload photos
                   </div>
-                  <div className="text-sm text-gray-500 mt-2">
+                  <div className="mt-2 text-sm text-slate-500">
                     Upload up to 5 photos of the problem area
                   </div>
                   <Button
                     type="button"
                     variant="outline"
-                    className="mt-4"
+                    className="mt-4 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                     onClick={(event) => {
                       event.preventDefault();
                       fileInputRef.current?.click();
@@ -556,16 +530,13 @@ export default function PostJobPage() {
 
               {formData.photos.length > 0 && (
                 <div className="mt-4">
-                  <div className="text-sm font-medium mb-2">
+                  <div className="mb-2 text-sm font-medium text-slate-900">
                     Selected Photos:
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {formData.photos.map((file, index) => (
-                      <div
-                        key={index}
-                        className="relative border rounded-lg p-2"
-                      >
-                        <div className="text-sm truncate w-32">{file.name}</div>
+                      <div key={index} className="relative rounded-lg border border-slate-200 p-2">
+                        <div className="w-32 truncate text-sm text-slate-700">{file.name}</div>
                         <button
                           type="button"
                           onClick={() => {
@@ -574,7 +545,7 @@ export default function PostJobPage() {
                               photos: prev.photos.filter((_, i) => i !== index),
                             }));
                           }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs text-white"
                         >
                           ×
                         </button>
@@ -587,17 +558,21 @@ export default function PostJobPage() {
           </CardContent>
         </Card>
 
-        {/* Submit Buttons */}
-        <div className="flex justify-between items-center pt-6 border-t">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+        <div className="flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 sm:w-auto"
+            onClick={() => router.back()}
+          >
             Cancel
           </Button>
-          <div className="flex gap-3">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <Button
               type="button"
               variant="outline"
+              className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 sm:w-auto"
               onClick={() => {
-                // Save as draft functionality
                 toast({
                   title: "Saved as draft",
                   description: "You can continue editing later.",
@@ -606,12 +581,20 @@ export default function PostJobPage() {
             >
               Save as Draft
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto">
               {isSubmitting ? "Posting..." : "Post Job & Get Quotes"}
             </Button>
           </div>
         </div>
       </form>
     </div>
+  );
+}
+
+export default function PostJobPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
+      <PostJobContent />
+    </Suspense>
   );
 }

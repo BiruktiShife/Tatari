@@ -3,8 +3,25 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { JobLifecycleOverview } from "@/components/dashboard/JobLifecycleOverview";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  Clock3,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+  Users2,
+} from "lucide-react";
 
 type SummaryResponse = {
   totalUsers: number;
@@ -29,6 +46,8 @@ type SummaryResponse = {
 type AdminJobsResponse = {
   jobs: { status?: string }[];
 };
+
+type StatIcon = "briefcase" | "dollar" | "users" | "star";
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -152,7 +171,12 @@ export default function AdminDashboardPage() {
     fetchSummary();
   }, [authorized]);
 
-  const stats = useMemo(() => {
+  const stats = useMemo((): {
+    title: string;
+    value: string;
+    change: string;
+    icon: StatIcon;
+  }[] => {
     if (!summary) return [];
     return [
       {
@@ -186,23 +210,86 @@ export default function AdminDashboardPage() {
     return null;
   }
 
+  const heroStats = [
+    {
+      label: "Users",
+      value: summary ? summary.totalUsers : 0,
+      icon: Users2,
+      tone: "bg-sky-50 text-sky-700",
+    },
+    {
+      label: "Active jobs",
+      value: summary ? summary.activeJobs : 0,
+      icon: BriefcaseBusiness,
+      tone: "bg-indigo-50 text-indigo-700",
+    },
+    {
+      label: "Disputes",
+      value: summary ? summary.disputeCases : 0,
+      icon: TriangleAlert,
+      tone: "bg-amber-50 text-amber-700",
+    },
+    {
+      label: "Pending providers",
+      value: summary ? summary.pendingProviders : 0,
+      icon: ShieldCheck,
+      tone: "bg-emerald-50 text-emerald-700",
+    },
+  ];
+
+  const highlightCount = summary
+    ? summary.recentPendingProviders.length + summary.recentDisputes.length
+    : 0;
+
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Platform Overview</h1>
-            <p className="text-slate-200 mt-2">
-              Monitor and manage the Habesha Skills Hub platform.
-            </p>
+    <div className="space-y-6 pb-6">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-lg shadow-slate-200/60 sm:px-8 lg:px-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(34,197,94,0.10),_transparent_28%),linear-gradient(135deg,_rgba(248,250,252,1),_rgba(255,255,255,1))]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-slate-200" />
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)] lg:items-end">
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+                Platform Overview
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                Monitor users, active jobs, disputes, and provider verification
+                from a cleaner, more focused dashboard experience.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => router.push("/admin/users")}
+                className="bg-slate-900 text-white hover:bg-slate-800"
+              >
+                Manage users
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/admin/jobs")}
+                className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+              >
+                Review jobs
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {loading ? (
-        <div className="text-sm text-gray-500">Loading summary...</div>
+        <Card className="border-slate-200">
+          <CardContent className="flex items-center gap-3 py-8 text-sm text-slate-500">
+            <Clock3 className="h-4 w-4 animate-spin" />
+            Loading summary...
+          </CardContent>
+        </Card>
       ) : error ? (
-        <div className="text-sm text-red-600">{error}</div>
+        <Card className="border-red-200 bg-red-50/80">
+          <CardContent className="py-6 text-sm text-red-700">
+            {error}
+          </CardContent>
+        </Card>
       ) : (
         <StatsCards stats={stats} />
       )}
@@ -218,69 +305,168 @@ export default function AdminDashboardPage() {
           />
         )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="border rounded-lg p-6">
-          <h3 className="font-semibold text-lg mb-4">Pending Verifications</h3>
-          <div className="space-y-3">
-            {summary?.recentPendingProviders?.length ? (
-              summary.recentPendingProviders.map((provider) => (
-                <div
-                  key={provider.id}
-                  className="flex items-center justify-between p-3 border rounded"
-                >
-                  <div>
-                    <div className="font-medium">{provider.name}</div>
-                    <div className="text-sm text-gray-500">
-                      Service Provider
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-lg">Pending verifications</CardTitle>
+              <CardDescription>
+                Providers waiting for review in the admin queue.
+              </CardDescription>
+            </div>
+            <Badge variant="secondary" className="rounded-full">
+              {summary?.recentPendingProviders?.length || 0}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {summary?.recentPendingProviders?.length ? (
+                summary.recentPendingProviders.map((provider) => (
+                  <div
+                    key={provider.id}
+                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate font-medium text-slate-900">
+                          {provider.name}
+                        </h3>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full border-amber-200 bg-amber-50 text-amber-700"
+                        >
+                          Pending
+                        </Badge>
+                      </div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        Service provider • {formatRelative(provider.createdAt)}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline">
+                        Review
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          router.push("/admin/users");
+                          toast({
+                            title: "Approve provider",
+                            description:
+                              "Use Users Management to approve providers.",
+                          });
+                        }}
+                      >
+                        Approve
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
-                      Review
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        router.push("/admin/users");
-                        toast({
-                          title: "Approve provider",
-                          description:
-                            "Use Users Management to approve providers.",
-                        });
-                      }}
-                    >
-                      Approve
-                    </Button>
-                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                  No pending providers right now.
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-500">No pending providers.</div>
-            )}
-          </div>
-        </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="border rounded-lg p-6">
-          <h3 className="font-semibold text-lg mb-4">Recent Disputes</h3>
-          <div className="space-y-3">
-            {summary?.recentDisputes?.length ? (
-              summary.recentDisputes.map((dispute) => (
-                <div key={dispute.id} className="p-3 border rounded">
-                  <div className="font-medium">{dispute.title}</div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {formatRelative(dispute.createdAt)} • {dispute.status}
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-lg">Recent disputes</CardTitle>
+              <CardDescription>
+                Track cases that need attention from the support team.
+              </CardDescription>
+            </div>
+            <Badge variant="secondary" className="rounded-full">
+              {summary?.recentDisputes?.length || 0}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {summary?.recentDisputes?.length ? (
+                summary.recentDisputes.map((dispute) => (
+                  <div
+                    key={dispute.id}
+                    className="rounded-2xl border border-slate-200 p-4 transition-shadow hover:shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900">
+                          {dispute.title}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                          <span>{formatRelative(dispute.createdAt)}</span>
+                          <span className="text-slate-300">•</span>
+                          <span>{dispute.status}</span>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full border-slate-200 bg-slate-50 text-slate-600"
+                      >
+                        Open
+                      </Badge>
+                    </div>
+                    <Button size="sm" variant="outline" className="mt-4">
+                      Resolve
+                    </Button>
                   </div>
-                  <Button size="sm" variant="outline" className="mt-2">
-                    Resolve
-                  </Button>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                  No disputes found.
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-500">No disputes found.</div>
-            )}
-          </div>
-        </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Card className="border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Admin shortcuts</CardTitle>
+          <CardDescription>
+            Fast paths to the main management areas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              title: "Users",
+              description: "Review providers, approvals, and account activity.",
+              href: "/admin/users",
+              tone: "text-sky-700 bg-sky-50 border-sky-200",
+            },
+            {
+              title: "Jobs",
+              description: "Inspect job states and marketplace execution.",
+              href: "/admin/jobs",
+              tone: "text-indigo-700 bg-indigo-50 border-indigo-200",
+            },
+            {
+              title: "Transactions",
+              description: "Follow revenue flows and payment issues.",
+              href: "/admin/transactions",
+              tone: "text-emerald-700 bg-emerald-50 border-emerald-200",
+            },
+          ].map((item) => (
+            <button
+              key={item.title}
+              type="button"
+              onClick={() => router.push(item.href)}
+              className={`group rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${item.tone}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-semibold">{item.title}</div>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <div className="mt-2 text-sm opacity-80">{item.description}</div>
+            </button>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

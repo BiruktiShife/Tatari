@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -90,7 +90,7 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-export default function ProviderMessagesPage() {
+function ProviderMessagesContent() {
   const searchParams = useSearchParams();
   const [myUserId, setMyUserId] = useState("");
   const [search, setSearch] = useState("");
@@ -447,5 +447,13 @@ export default function ProviderMessagesPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+export default function ProviderMessagesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading messages...</div>}>
+      <ProviderMessagesContent />
+    </Suspense>
   );
 }

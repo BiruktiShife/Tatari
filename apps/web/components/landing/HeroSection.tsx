@@ -112,8 +112,8 @@ export default function HeroSection() {
                   </div>
                 </div>
                 <div className="text-lg font-medium mb-2">
-                  "Fixed my kitchen sink in 30 minutes. Professional and
-                  affordable!"
+                  &quot;Fixed my kitchen sink in 30 minutes. Professional and
+                  affordable!&quot;
                 </div>
                 <div className="text-gray-500">- Sarah M., Bole</div>
               </div>
@@ -139,7 +139,7 @@ export default function HeroSection() {
                   </div>
                 </div>
                 <div className="text-lg font-medium mb-2">
-                  "Designed our company logo overnight. Exceptional quality!"
+                  &quot;Designed our company logo overnight. Exceptional quality!&quot;
                 </div>
                 <div className="text-gray-500">- Tech Startup, Kazanchis</div>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -54,7 +54,7 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -64,6 +64,8 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [businessLicenseFile, setBusinessLicenseFile] =
+    useState<File | null>(null);
   const [formData, setFormData] = useState({
     // Common fields
     fullName: "",
@@ -99,6 +101,7 @@ export default function RegisterPage() {
     "Appliance Repair",
     "Other",
   ];
+  const regulatedCategories = new Set(["plumbing", "electrical", "hvac"]);
 
   const serviceAreasList = [
     "Bole",
@@ -146,6 +149,9 @@ export default function RegisterPage() {
 
   const validateStep2 = () => {
     const newErrors: Record<string, string> = {};
+    const requiresLicense =
+      userType === "provider" &&
+      regulatedCategories.has(formData.serviceCategory);
 
     if (userType === "client") {
       if (!formData.address.trim()) newErrors.address = "Address is required";
@@ -162,6 +168,10 @@ export default function RegisterPage() {
         newErrors.hourlyRate = "Hourly rate must be greater than 0";
       if (!formData.serviceAreas.length)
         newErrors.serviceAreas = "Select at least one service area";
+      if (requiresLicense && !businessLicenseFile) {
+        newErrors.businessLicense =
+          "Business license is required for this category";
+      }
     }
 
     return newErrors;
@@ -196,37 +206,46 @@ export default function RegisterPage() {
           ? resolveApiUrl("/auth/register/client")
           : resolveApiUrl("/auth/register/provider");
 
-      const payload =
-        userType === "client"
-          ? {
-              name: formData.fullName,
-              email: formData.email,
-              phone: formData.phone,
-              password: formData.password,
-              address: formData.address,
-            }
-          : {
-              name: formData.fullName,
-              email: formData.email,
-              phone: formData.phone,
-              password: formData.password,
-              businessName: formData.businessName,
-              serviceCategory: formData.serviceCategory,
-              experience: formData.experience,
-              hourlyRate: Number(formData.hourlyRate),
-              serviceAreas: formData.serviceAreas,
-              bio: formData.bio,
-            };
+      let res: Response;
+      if (userType === "client") {
+        const payload = {
+          name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          address: formData.address,
+        };
+        res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        const payload = new FormData();
+        payload.append("name", formData.fullName);
+        payload.append("email", formData.email);
+        payload.append("phone", formData.phone);
+        payload.append("password", formData.password);
+        payload.append("businessName", formData.businessName);
+        payload.append("serviceCategory", formData.serviceCategory);
+        payload.append("experience", formData.experience);
+        payload.append("hourlyRate", formData.hourlyRate);
+        formData.serviceAreas.forEach((area) =>
+          payload.append("serviceAreas", area),
+        );
+        if (formData.bio) payload.append("bio", formData.bio);
+        if (businessLicenseFile) {
+          payload.append("businessLicense", businessLicenseFile);
+        }
+        res = await fetch(endpoint, {
+          method: "POST",
+          body: payload,
+        });
+      }
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      let data: any = null;
+      let data: { message?: string } | null = null;
       let rawText = "";
       try {
         data = await res.json();
@@ -254,7 +273,7 @@ export default function RegisterPage() {
         description: "You can now sign in with your credentials.",
       });
       router.push("/login");
-    } catch (error) {
+    } catch {
       setFormError("Server error. Please try again.");
       toast({
         title: "Server error",
@@ -683,6 +702,41 @@ export default function RegisterPage() {
                       </div>
 
                       <div className="space-y-2">
+                        <Label htmlFor="businessLicense">
+                          Business License{" "}
+                          {regulatedCategories.has(formData.serviceCategory)
+                            ? "(required)"
+                            : "(optional)"}
+                        </Label>
+                        <Input
+                          id="businessLicense"
+                          name="businessLicense"
+                          type="file"
+                          accept="application/pdf,image/*"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] || null;
+                            setBusinessLicenseFile(file);
+                            if (errors.businessLicense) {
+                              setErrors((prev) => ({
+                                ...prev,
+                                businessLicense: "",
+                              }));
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500">
+                          Upload a PDF or image of your license. Required for
+                          regulated categories.
+                        </p>
+                        {errors.businessLicense && (
+                          <p className="text-sm text-red-600 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {errors.businessLicense}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
                         <Label htmlFor="hourlyRate">Hourly Rate (ETB)</Label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
@@ -804,5 +858,13 @@ export default function RegisterPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

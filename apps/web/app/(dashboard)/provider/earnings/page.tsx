@@ -11,7 +11,6 @@ import {
   Wallet,
   CheckCircle,
   Clock,
-  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,15 +32,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-
-const earningsData = [
-  { month: "Jan", earnings: 4200, jobs: 8 },
-  { month: "Feb", earnings: 5200, jobs: 10 },
-  { month: "Mar", earnings: 6100, jobs: 12 },
-  { month: "Apr", earnings: 5800, jobs: 11 },
-  { month: "May", earnings: 7200, jobs: 14 },
-  { month: "Jun", earnings: 6800, jobs: 13 },
-];
 
 const transactions = [
   {
