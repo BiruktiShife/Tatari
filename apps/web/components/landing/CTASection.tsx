@@ -1,75 +1,94 @@
+"use client";
 import React from "react";
-import { Shield, Clock, Users, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Briefcase, UserPlus, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function CTASection() {
   return (
-    <section className="py-20 bg-gradient-to-br from-gray-900 to-blue-900 text-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Transform how you get things done
-          </h2>
-          <p className="text-xl text-blue-200 mb-12 max-w-3xl mx-auto">
-            Whether you need a service or want to offer one, Habesha Skills Hub
-            makes it simple, secure, and profitable.
-          </p>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            {[
-              {
-                icon: Shield,
-                title: "100% Secure",
-                desc: "Escrow payment protection",
-              },
-              {
-                icon: Clock,
-                title: "Fast Matching",
-                desc: "Get quotes in minutes",
-              },
-              {
-                icon: Users,
-                title: "Verified Pros",
-                desc: "Background checked providers",
-              },
-              {
-                icon: Award,
-                title: "Quality Guaranteed",
-                desc: "Satisfaction or money back",
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.title} className="text-center">
-                  <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Icon size={24} className="text-blue-300" />
-                  </div>
-                  <div className="font-semibold">{item.title}</div>
-                  <div className="text-sm text-blue-200">{item.desc}</div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+    <section className="py-24 bg-slate-50">
+      <div className="container mx-auto px-4">
+        <div className="grid lg:grid-cols-2 gap-8 items-stretch">
+          {/* Client Path */}
+          <div className="bg-white p-10 md:p-14 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-indigo-100 hover:shadow-2xl transition-all group flex flex-col justify-between">
+            <div>
+              <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-indigo-200">
+                <Briefcase size={28} />
+              </div>
+              <h3 className="text-3xl font-extrabold text-slate-900 mb-4">
+                Need to get something done?
+              </h3>
+              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+                Post your task and receive quotes from top-rated professionals
+                in minutes. Tatari protects your payments until the job is done.
+              </p>
+              <ul className="space-y-4 mb-10 text-slate-700 font-medium">
+                <li className="flex items-center gap-3">
+                  <ShieldCheck size={20} className="text-indigo-600" /> Free to
+                  post a task
+                </li>
+                <li className="flex items-center gap-3">
+                  <ShieldCheck size={20} className="text-indigo-600" /> Only pay
+                  when satisfied
+                </li>
+              </ul>
+            </div>
             <Button
               size="lg"
-              className="bg-white text-blue-900 hover:bg-blue-100 px-8 py-6 text-lg"
+              className="h-14 rounded-xl bg-slate-900 hover:bg-slate-800 text-lg group-hover:gap-4 transition-all"
             >
-              Get Started for Free
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white hover:bg-white/10 px-8 py-6 text-lg"
-            >
-              Watch Demo Video
+              Find a Professional <ArrowRight className="ml-2" size={20} />
             </Button>
           </div>
 
-          <div className="mt-12 text-sm text-blue-300">
-            No credit card required • Cancel anytime • 24/7 support
+          {/* Provider Path */}
+          <div className="bg-indigo-600 p-10 md:p-14 rounded-[2.5rem] shadow-xl shadow-indigo-200 text-white flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+
+            <div className="relative z-10">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md text-white rounded-2xl flex items-center justify-center mb-8">
+                <UserPlus size={28} />
+              </div>
+              <h3 className="text-3xl font-extrabold mb-4">
+                Are you a skilled expert?
+              </h3>
+              <p className="text-lg text-indigo-100 mb-8 leading-relaxed">
+                Join our network of elite professionals. Set your own hours,
+                find high-quality leads, and get paid instantly upon job
+                completion.
+              </p>
+              <ul className="space-y-4 mb-10 text-indigo-50 font-medium">
+                <li className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full" /> Keep
+                  100% of your tips
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full" /> Verified
+                  reviews for your portfolio
+                </li>
+              </ul>
+            </div>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="h-14 rounded-xl bg-white text-indigo-600 hover:bg-indigo-50 text-lg relative z-10"
+            >
+              Become a Provider
+            </Button>
           </div>
+        </div>
+
+        {/* Trust Footer */}
+        <div className="mt-16 flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all cursor-default">
+          <span className="font-bold text-xl text-slate-900">
+            256-bit Encryption
+          </span>
+          <span className="font-bold text-xl text-slate-900">
+            Verified Identity
+          </span>
+          <span className="font-bold text-xl text-slate-900">
+            Secure Payments
+          </span>
+          <span className="font-bold text-xl text-slate-900">24/7 Support</span>
         </div>
       </div>
     </section>

@@ -9,18 +9,17 @@ import {
   Clock,
   Upload,
   AlertCircle,
+  Zap,
+  ArrowLeft,
+  Loader2,
+  X,
+  Plus,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -28,8 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+
+function resolveApiUrl(path: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
+}
 
 function PostJobContent() {
   const router = useRouter();
@@ -51,7 +57,7 @@ function PostJobContent() {
     budgetType: "fixed" as "fixed" | "hourly",
     budgetAmount: "",
     timeline: "flexible" as "urgent" | "within_week" | "flexible",
-    location: "Bole, Addis Ababa",
+    location: "bole",
     address: "",
     photos: [] as File[],
   });
@@ -65,526 +71,397 @@ function PostJobContent() {
     "Carpentry",
     "Construction",
     "Moving",
-    "Furniture Assembly",
     "Graphic Design",
     "Web Development",
-    "Tutoring",
-    "Translation",
-    "Data Entry",
     "Other",
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // Validate form
     if (!formData.title || !formData.category || !formData.description) {
       toast({
-        title: "Missing information",
+        title: "Missing info",
         description: "Please fill in all required fields.",
         variant: "destructive",
       });
-      setIsSubmitting(false);
       return;
     }
+
+    setIsSubmitting(true);
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      router.push("/login?role=client");
+      return;
+    }
+
     try {
-      // Prefer an explicit environment variable. Falls back to development defaults.
-      // In this repo the backend runs on 3003; many users were pointing to 3001 by mistake.
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-      let url = "";
-
-      if (apiUrl) {
-        try {
-          new URL(apiUrl);
-          url = `${apiUrl.replace(/\/$/, "")}/jobs`;
-        } catch {
-          // Not an absolute URL — allow leading-relative paths like "/api"
-          if (apiUrl.startsWith("/")) {
-            url = `${apiUrl.replace(/\/$/, "")}/jobs`;
-          } else {
-            toast({
-              title: "Invalid API URL",
-              description:
-                "NEXT_PUBLIC_API_URL is not a valid URL. Check your environment configuration.",
-              variant: "destructive",
-            });
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      } else {
-        // Fallback to a reasonable dev default. we expect the frontend to run on 3000
-        // and backend on 3003; using same-origin (3000) would cause CORS, so prefer
-        // the hardcoded backend port when running locally.
-        if (typeof window !== "undefined" && window.location) {
-          const origin = window.location.origin;
-          if (origin.includes("localhost")) {
-            url = `http://localhost:3003/jobs`;
-          } else {
-            url = `${origin}/jobs`;
-          }
-        } else {
-          url = `/jobs`;
-        }
-      }
-
+      const url = resolveApiUrl("/jobs");
       const body = new FormData();
       body.append("title", formData.title);
       body.append("category", formData.category);
       body.append("description", formData.description);
-      body.append(
-        "budgetType",
-        formData.budgetType === "fixed" ? "FIXED" : "HOURLY",
-      );
+      body.append("budgetType", formData.budgetType.toUpperCase());
       if (formData.budgetAmount)
         body.append("budgetAmount", String(formData.budgetAmount));
-      body.append(
-        "timeline",
-        formData.timeline === "urgent"
-          ? "URGENT"
-          : formData.timeline === "within_week"
-            ? "WITHIN_WEEK"
-            : "FLEXIBLE",
-      );
+      body.append("timeline", formData.timeline.toUpperCase());
       body.append("location", formData.location);
       if (formData.address) body.append("address", formData.address);
-      if (preferredProvider?.id) {
+      if (preferredProvider?.id)
         body.append("preferredProviderId", preferredProvider.id);
-      }
-
-      // Attach photos (up to 5)
-      formData.photos.slice(0, 5).forEach((file) => {
-        body.append("photos", file);
-      });
-
-      // Try to get token from localStorage (adjust if you store auth differently)
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-      // If the user is not authenticated we can't post a job. prompt them.
-      if (!token) {
-        toast({
-          title: "Not logged in",
-          description: "Please sign in before posting a job.",
-          variant: "destructive",
-        });
-        router.push("/auth/login?role=client");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // In dev show a small toast with the final URL and token presence to help debug network/CORS issues
-      if (process.env.NODE_ENV !== "production") {
-        console.debug("Post job URL:", url);
-        try {
-          toast({
-            title: "Sending request to API (dev)",
-            description: `${url} — token ${token ? "present" : "missing"}`,
-          });
-        } catch {
-          // ignore toast failures in edge cases
-        }
-      }
+      formData.photos.forEach((file) => body.append("photos", file));
 
       const res = await fetch(url, {
         method: "POST",
         body,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        toast({
-          title: "Failed to post job",
-          description: err?.message || "Server returned an error",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
+      if (!res.ok) throw new Error("Failed to post job");
 
       toast({
-        title: "Job posted successfully!",
-        description: "Providers will start sending quotes shortly.",
+        title: "Job Posted!",
+        description: "Professionals will now start sending quotes.",
       });
       router.push("/client/jobs");
-    } catch (error: unknown) {
-      console.error("Post job error", error);
-      // Provide more actionable feedback for network/URL/CORS failures
-      const isNetworkError =
-        error instanceof TypeError &&
-        /failed to fetch/i.test(String(error.message));
+    } catch (error: any) {
       toast({
-        title: isNetworkError ? "Network request failed" : "Failed to post job",
-        description: isNetworkError
-          ? "Could not reach the API. Check NEXT_PUBLIC_API_URL, server status, and CORS settings."
-          : error instanceof Error
-            ? error.message
-            : "An unexpected error occurred.",
+        title: "Error",
+        description: error.message,
         variant: "destructive",
       });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setFormData((prev) => {
-      const next = [...prev.photos, ...files];
-      if (next.length > 5) {
-        toast({
-          title: "Photo limit reached",
-          description: "You can upload up to 5 photos per job.",
-          variant: "destructive",
-        });
-      }
-      return {
-        ...prev,
-        photos: next.slice(0, 5),
-      };
-    });
-    e.target.value = "";
+    setFormData((prev) => ({
+      ...prev,
+      photos: [...prev.photos, ...files].slice(0, 5),
+    }));
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="space-y-2">
-          <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-            Job request
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-            Post a New Job
+    <div className="max-w-4xl mx-auto pb-20">
+      {/* Header Area */}
+      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 font-semibold mb-4 transition-colors"
+          >
+            <ArrowLeft size={18} /> Back
+          </button>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
+            Create a New Project
           </h1>
-          <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-            Describe what you need and get quotes from local professionals.
+          <p className="text-slate-500 mt-2 text-lg">
+            Describe what you need and get quotes within minutes.
           </p>
-          {preferredProvider && (
-            <p className="text-sm font-medium text-emerald-700">
-              This job will be sent to {preferredProvider.name || "your provider"}.
-            </p>
-          )}
         </div>
-      </section>
+        {preferredProvider && (
+          <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 px-4 py-2 border-emerald-100 rounded-xl gap-2 h-fit">
+            <CheckCircle2 size={16} /> Sending to {preferredProvider.name}
+          </Badge>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-slate-900">Job Details</CardTitle>
-            <CardDescription className="text-slate-600">
-              Be specific to get accurate quotes from providers.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        {/* SECTION 1: Core Details */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 md:p-12 shadow-sm">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              1
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">
+              Project Details
+            </h2>
+          </div>
+
+          <div className="grid gap-8">
             <div className="space-y-2">
-              <Label htmlFor="title">
-                Job Title <span className="text-red-500">*</span>
+              <Label className="text-slate-700 font-bold ml-1">
+                Project Title
               </Label>
               <Input
-                id="title"
-                placeholder="e.g., Fix leaking kitchen sink"
+                placeholder="e.g. Install kitchen sink and faucet"
+                className="h-14 bg-slate-50 border-none rounded-2xl text-lg focus:ring-2 focus:ring-indigo-500/20"
                 value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
-                required
+                onChange={(e) =>
+                  setFormData((p) => ({ ...p, title: e.target.value }))
+                }
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category">
-                Service Category <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
-              >
-                <SelectTrigger className="border-slate-300 bg-white text-slate-900">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {serviceCategories.map((category) => (
-                    <SelectItem key={category} value={category.toLowerCase()}>
-                      {category}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Category
+                </Label>
+                <Select
+                  onValueChange={(v) =>
+                    setFormData((p) => ({ ...p, category: v }))
+                  }
+                >
+                  <SelectTrigger className="h-14 bg-slate-50 border-none rounded-2xl">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    {serviceCategories.map((c) => (
+                      <SelectItem key={c} value={c.toLowerCase()}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Location
+                </Label>
+                <Select
+                  defaultValue="bole"
+                  onValueChange={(v) =>
+                    setFormData((p) => ({ ...p, location: v }))
+                  }
+                >
+                  <SelectTrigger className="h-14 bg-slate-50 border-none rounded-2xl">
+                    <SelectValue placeholder="Select Location" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    <SelectItem value="bole">Bole, Addis Ababa</SelectItem>
+                    <SelectItem value="kasanchis">
+                      Kasanchis, Addis Ababa
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    <SelectItem value="mexico">Mexico, Addis Ababa</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">
-                Detailed Description <span className="text-red-500">*</span>
+              <Label className="text-slate-700 font-bold ml-1">
+                Description
               </Label>
               <Textarea
-                id="description"
-                placeholder="Describe exactly what you need. Include details like:
-• What&apos;s broken or needs to be done
-• Specific requirements
-• Materials needed (if any)
-• Any special considerations"
-                rows={6}
+                placeholder="Be as detailed as possible. Include requirements, materials needed, and the specific problem..."
+                className="min-h-[180px] bg-slate-50 border-none rounded-3xl p-6 text-lg focus:ring-2 focus:ring-indigo-500/20"
                 value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                className="resize-none border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
-                required
+                onChange={(e) =>
+                  setFormData((p) => ({ ...p, description: e.target.value }))
+                }
               />
-              <p className="text-sm text-slate-500">
-                The more details you provide, the better quotes you&apos;ll receive.
-              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-slate-900">Budget & Timeline</CardTitle>
-            <CardDescription className="text-slate-600">
-              Set your budget and when you need the job done.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        {/* SECTION 2: Budget & Time */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 md:p-12 shadow-sm">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              2
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">
+              Budget & Timeline
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12">
+            {/* Budget Selection */}
             <div className="space-y-4">
-              <Label>Budget Type</Label>
-              <RadioGroup
-                value={formData.budgetType}
-                onValueChange={(value: "fixed" | "hourly") =>
-                  setFormData((prev) => ({ ...prev, budgetType: value }))
-                }
-                className="flex flex-col space-y-2 sm:flex-row sm:space-x-4 sm:space-y-0"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="fixed" id="fixed" />
-                  <Label htmlFor="fixed" className="font-normal">
-                    <div className="flex items-center gap-2">
-                      <DollarSign size={16} />
-                      <span>Fixed Price</span>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="hourly" id="hourly" />
-                  <Label htmlFor="hourly" className="font-normal">
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} />
-                      <span>Hourly Rate</span>
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="budgetAmount">
-                {formData.budgetType === "fixed"
-                  ? "Budget Amount (ETB)"
-                  : "Hourly Rate (ETB/hour)"}
+              <Label className="text-slate-700 font-bold ml-1">
+                Budget Type
               </Label>
-              <div className="relative">
-                <DollarSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  id="budgetAmount"
-                  type="number"
-                  placeholder={formData.budgetType === "fixed" ? "e.g., 5000" : "e.g., 250"}
-                  className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
-                  value={formData.budgetAmount}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, budgetAmount: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>How soon do you need this?</Label>
-              <RadioGroup
-                value={formData.timeline}
-                onValueChange={(value: "urgent" | "within_week" | "flexible") =>
-                  setFormData((prev) => ({ ...prev, timeline: value }))
-                }
-                className="space-y-3"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="urgent" id="urgent" />
-                  <Label htmlFor="urgent" className="font-normal">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle size={16} className="text-rose-500" />
-                      <div>
-                        <div className="font-medium text-slate-900">Urgent (Today/Tomorrow)</div>
-                        <div className="text-sm text-slate-500">Need it done ASAP</div>
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="within_week" id="within_week" />
-                  <Label htmlFor="within_week" className="font-normal">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-sky-500" />
-                      <div>
-                        <div className="font-medium text-slate-900">Within This Week</div>
-                        <div className="text-sm text-slate-500">Flexible within 7 days</div>
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="flexible" id="flexible" />
-                  <Label htmlFor="flexible" className="font-normal">
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-emerald-500" />
-                      <div>
-                        <div className="font-medium text-slate-900">Flexible</div>
-                        <div className="text-sm text-slate-500">No specific deadline</div>
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-slate-900">Location & Photos</CardTitle>
-            <CardDescription className="text-slate-600">
-              Help providers understand the job better.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="location">
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} />
-                  <span>Location</span>
-                </div>
-              </Label>
-              <Select
-                value={formData.location}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, location: value }))}
-              >
-                <SelectTrigger className="border-slate-300 bg-white text-slate-900">
-                  <SelectValue placeholder="Select your area" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bole">Bole, Addis Ababa</SelectItem>
-                  <SelectItem value="kasanchis">Kasanchis, Addis Ababa</SelectItem>
-                  <SelectItem value="mexico">Mexico, Addis Ababa</SelectItem>
-                  <SelectItem value="piassa">Piassa, Addis Ababa</SelectItem>
-                  <SelectItem value="merkato">Merkato, Addis Ababa</SelectItem>
-                  <SelectItem value="other">Other Area</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.location === "other" && (
-              <div className="space-y-2">
-                <Label htmlFor="address">Full Address</Label>
-                <Input
-                  id="address"
-                  placeholder="Enter your full address"
-                  value={formData.address}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                  className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="photos">
-                <div className="flex items-center gap-2">
-                  <Upload size={16} />
-                  <span>Upload Photos (Optional)</span>
-                </div>
-              </Label>
-              <div className="rounded-lg border-2 border-dashed border-slate-300 p-8 text-center">
-                <input
-                  type="file"
-                  id="photos"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  ref={fileInputRef}
-                  className="hidden"
-                />
-                <div className="cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mx-auto mb-4 h-12 w-12 text-slate-400" />
-                  <div className="text-lg font-medium text-slate-700">
-                    Click to upload photos
-                  </div>
-                  <div className="mt-2 text-sm text-slate-500">
-                    Upload up to 5 photos of the problem area
-                  </div>
-                  <Button
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { id: "fixed", label: "Fixed Price", icon: DollarSign },
+                  { id: "hourly", label: "Hourly Rate", icon: Clock },
+                ].map((btn) => (
+                  <button
+                    key={btn.id}
                     type="button"
-                    variant="outline"
-                    className="mt-4 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      fileInputRef.current?.click();
+                    onClick={() =>
+                      setFormData((p) => ({ ...p, budgetType: btn.id as any }))
+                    }
+                    className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2
+                                ${formData.budgetType === btn.id ? "border-indigo-600 bg-indigo-50 text-indigo-600" : "border-slate-50 bg-slate-50 text-slate-500 hover:border-slate-200"}`}
+                  >
+                    <btn.icon size={20} />
+                    <span className="font-bold text-sm">{btn.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="relative mt-4">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">
+                  ETB
+                </span>
+                <Input
+                  type="number"
+                  placeholder="Amount"
+                  className="h-14 pl-14 bg-slate-50 border-none rounded-2xl font-bold text-lg"
+                  value={formData.budgetAmount}
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, budgetAmount: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Timeline Selection */}
+            <div className="space-y-4">
+              <Label className="text-slate-700 font-bold ml-1">Priority</Label>
+              <div className="space-y-3">
+                {[
+                  {
+                    id: "urgent",
+                    label: "Urgent",
+                    desc: "ASAP / Within 24h",
+                    icon: Zap,
+                    color: "text-rose-500",
+                  },
+                  {
+                    id: "within_week",
+                    label: "Within a week",
+                    desc: "Flexible next 7 days",
+                    icon: Calendar,
+                    color: "text-indigo-500",
+                  },
+                  {
+                    id: "flexible",
+                    label: "Flexible",
+                    desc: "No specific rush",
+                    icon: Clock,
+                    color: "text-slate-400",
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      setFormData((p) => ({ ...p, timeline: item.id as any }))
+                    }
+                    className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all
+                                ${formData.timeline === item.id ? "border-indigo-600 bg-indigo-50 shadow-sm" : "border-slate-50 bg-slate-50 hover:border-slate-200"}`}
+                  >
+                    <div className="flex items-center gap-4 text-left">
+                      <item.icon className={item.color} size={20} />
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">
+                          {item.label}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {item.desc}
+                        </div>
+                      </div>
+                    </div>
+                    {formData.timeline === item.id && (
+                      <div className="h-4 w-4 rounded-full bg-indigo-600" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: Photos */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 md:p-12 shadow-sm text-center">
+          <div className="flex items-center gap-3 mb-8 text-left">
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              3
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">
+              Photos (Optional)
+            </h2>
+          </div>
+
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-4 border-dashed border-slate-50 rounded-[2rem] p-12 hover:border-indigo-100 hover:bg-slate-50/50 transition-all cursor-pointer group"
+          >
+            <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all text-slate-400">
+              <Upload size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">
+              Click to upload photos
+            </h3>
+            <p className="text-slate-500 mt-1 font-medium italic">
+              Help professionals understand the scope visually (Max 5)
+            </p>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+            />
+          </div>
+
+          {formData.photos.length > 0 && (
+            <div className="flex flex-wrap gap-4 mt-8 justify-center">
+              {formData.photos.map((file, i) => (
+                <div
+                  key={i}
+                  className="relative group h-24 w-24 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
+                >
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] p-2 text-center text-slate-500 font-bold truncate">
+                    {file.name}
+                  </div>
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 shadow-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData((p) => ({
+                        ...p,
+                        photos: p.photos.filter((_, idx) => idx !== i),
+                      }));
                     }}
                   >
-                    Choose Files
-                  </Button>
+                    <X size={12} />
+                  </button>
                 </div>
-              </div>
-
-              {formData.photos.length > 0 && (
-                <div className="mt-4">
-                  <div className="mb-2 text-sm font-medium text-slate-900">
-                    Selected Photos:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.photos.map((file, index) => (
-                      <div key={index} className="relative rounded-lg border border-slate-200 p-2">
-                        <div className="w-32 truncate text-sm text-slate-700">{file.name}</div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              photos: prev.photos.filter((_, i) => i !== index),
-                            }));
-                          }}
-                          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs text-white"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              ))}
+              {formData.photos.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-24 w-24 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:border-indigo-600 transition-all"
+                >
+                  <Plus size={32} />
+                </button>
               )}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
-        <div className="flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center">
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-6">
           <Button
             type="button"
-            variant="outline"
-            className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 sm:w-auto"
+            variant="ghost"
+            className="h-14 px-8 text-slate-500 font-bold text-lg hover:bg-slate-100 rounded-2xl w-full sm:w-auto"
             onClick={() => router.back()}
           >
             Cancel
           </Button>
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900 sm:w-auto"
-              onClick={() => {
-                toast({
-                  title: "Saved as draft",
-                  description: "You can continue editing later.",
-                });
-              }}
-            >
-              Save as Draft
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto">
-              {isSubmitting ? "Posting..." : "Post Job & Get Quotes"}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="h-14 px-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-2xl shadow-xl shadow-indigo-100 w-full sm:w-auto"
+          >
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="animate-spin" size={20} /> Posting...
+              </span>
+            ) : (
+              "Post Your Project"
+            )}
+          </Button>
         </div>
       </form>
     </div>
@@ -593,7 +470,13 @@ function PostJobContent() {
 
 export default function PostJobPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-white">
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
+        </div>
+      }
+    >
       <PostJobContent />
     </Suspense>
   );

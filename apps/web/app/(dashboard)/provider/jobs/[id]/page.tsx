@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { DollarSign, Loader2, MapPin, ShieldCheck } from "lucide-react";
+import { Label } from "recharts";
 
 type JobDetail = {
   id: string;
@@ -46,18 +48,6 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-function formatBudget(job: JobDetail) {
-  if (job.budgetType === "RANGE") {
-    return `₵ ${job.budgetMin ?? 0} - ${job.budgetMax ?? 0}`;
-  }
-  if (job.budgetAmount != null) {
-    return job.budgetType === "HOURLY"
-      ? `₵ ${job.budgetAmount}/hr`
-      : `₵ ${job.budgetAmount}`;
-  }
-  return "Budget not specified";
-}
-
 export default function ProviderJobQuotePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -65,14 +55,14 @@ export default function ProviderJobQuotePage() {
   const { toast } = useToast();
 
   const [job, setJob] = useState<JobDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [timeline, setTimeline] = useState("");
-  const [materials, setMaterials] = useState("");
+  const [materials] = useState("");
   const [warranty, setWarranty] = useState("");
 
   useEffect(() => {
@@ -179,104 +169,136 @@ export default function ProviderJobQuotePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Submit Quote</h1>
-        <p className="text-gray-600 mt-2">
-          Provide a clear estimate so the client can compare offers.
+    <div className="max-w-5xl mx-auto space-y-10 pb-20 px-2">
+      <div className="space-y-2">
+        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
+          Submit Proposal
+        </h1>
+        <p className="text-slate-500 text-lg">
+          Send your best offer to the client with a clear breakdown of services.
         </p>
       </div>
 
-      {loading ? (
-        <div className="text-sm text-gray-500">Loading job details...</div>
-      ) : error ? (
-        <div className="text-sm text-red-600">{error}</div>
-      ) : job ? (
-        <Card className="border-slate-200">
-          <CardContent className="p-6 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-semibold">{job.title}</h2>
-              {job.category && <Badge variant="outline">{job.category}</Badge>}
-            </div>
-            <p className="text-gray-600">{job.description}</p>
-            <div className="text-sm text-gray-600">
-              Client: {job.client?.name || "Client"}
-            </div>
-            <div className="text-sm text-gray-600">Location: {job.location}</div>
-            <div className="text-sm text-gray-600">Budget: {formatBudget(job)}</div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <div className="grid lg:grid-cols-12 gap-10">
+        {/* PROJECT BRIEF */}
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="rounded-[2.5rem] border-none bg-slate-950 p-8 text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full" />
+            <div className="relative z-10 space-y-6">
+              <Badge className="bg-indigo-600 border-none px-4 py-1">
+                Project Brief
+              </Badge>
+              <h2 className="text-3xl font-bold leading-tight">{job?.title}</h2>
+              <p className="text-slate-400 leading-relaxed text-sm italic">
+                {job?.description}
+              </p>
 
-      <Card className="border-slate-200">
-        <CardContent className="p-6 space-y-4">
-          {alreadySubmitted && (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-              Quote already submitted. You can submit only one quote for this job.
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <div className="flex items-center gap-3 text-sm font-bold text-slate-300">
+                  <MapPin size={16} /> {job?.location}
+                </div>
+                <div className="flex items-center gap-3 text-sm font-bold text-indigo-400">
+                  <DollarSign size={16} /> Client Budget: ETB{" "}
+                  {job?.budgetAmount}
+                </div>
+              </div>
             </div>
-          )}
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Quote Amount
-            </label>
-            <Input
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter your price"
-              disabled={alreadySubmitted}
-            />
+          </Card>
+
+          <div className="p-8 bg-indigo-50 rounded-[2.5rem] border border-indigo-100 flex items-start gap-4">
+            <ShieldCheck className="text-indigo-600 mt-1 shrink-0" />
+            <p className="text-sm text-indigo-900/70 leading-relaxed font-medium">
+              Your payment is secured by{" "}
+              <span className="font-bold text-indigo-900">
+                Tatari Secure-Pay
+              </span>
+              . Funds are deposited by the client before you start.
+            </p>
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Explain your approach, scope, and assumptions"
-              disabled={alreadySubmitted}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Timeline</label>
-            <Input
-              value={timeline}
-              onChange={(e) => setTimeline(e.target.value)}
-              placeholder="Estimated duration"
-              disabled={alreadySubmitted}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Materials
-            </label>
-            <Input
-              value={materials}
-              onChange={(e) => setMaterials(e.target.value)}
-              placeholder="Included materials, if any"
-              disabled={alreadySubmitted}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Warranty</label>
-            <Input
-              value={warranty}
-              onChange={(e) => setWarranty(e.target.value)}
-              placeholder="Warranty or guarantee details"
-              disabled={alreadySubmitted}
-            />
-          </div>
-          <Button onClick={handleSubmit} disabled={submitting || alreadySubmitted}>
-            {alreadySubmitted
-              ? "Quote Submitted"
-              : submitting
-                ? "Submitting..."
-                : "Submit Quote"}
-          </Button>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* PROPOSAL FORM */}
+        <div className="lg:col-span-7">
+          <Card className="rounded-[2.5rem] border-slate-100 shadow-sm p-8 md:p-12 space-y-8 bg-white">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-slate-50 text-slate-900 flex items-center justify-center font-black">
+                Offer
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900">
+                Your Quotation
+              </h3>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Total Quote Amount (ETB)
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-lg">
+                    ETB
+                  </span>
+                  <Input
+                    type="number"
+                    className="h-14 pl-12 bg-slate-50 border-none rounded-2xl text-xl font-black text-indigo-600"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Execution Plan
+                </Label>
+                <Textarea
+                  className="min-h-[150px] bg-slate-50 border-none rounded-[2rem] p-6 text-base"
+                  placeholder="How will you solve this? Mention tools and approach..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-bold ml-1">
+                    Estimated Timeline
+                  </Label>
+                  <Input
+                    className="h-14 bg-slate-50 border-none rounded-2xl"
+                    placeholder="e.g. 2 Days"
+                    value={timeline}
+                    onChange={(e) => setTimeline(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-bold ml-1">
+                    Warranty Provided
+                  </Label>
+                  <Input
+                    className="h-14 bg-slate-50 border-none rounded-2xl"
+                    placeholder="e.g. 6 Months"
+                    value={warranty}
+                    onChange={(e) => setWarranty(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-100 transition-all active:scale-[0.98]"
+              >
+                {submitting ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  "Send Proposal"
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

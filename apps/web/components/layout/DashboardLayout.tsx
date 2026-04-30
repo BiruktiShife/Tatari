@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
@@ -15,12 +17,17 @@ export function DashboardLayout({
   userName = "User",
 }: DashboardLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {" "}
+      {/* Softest slate background */}
       <Header userName={userName} userType={userType} />
-      <div className="flex pt-16">
+      <div className="flex pt-16 h-screen overflow-hidden">
         <Sidebar userType={userType} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 md:ml-64 md:h-[calc(100vh-4rem)] md:overflow-y-auto">
-          <div className="max-w-7xl mx-auto">{children}</div>
+
+        <main className="flex-1 overflow-y-auto md:ml-64 transition-all duration-300">
+          <div className="container mx-auto p-4 md:p-8 lg:p-12 max-w-[1600px] animate-in fade-in duration-500">
+            {children}
+          </div>
         </main>
       </div>
       <Toaster />

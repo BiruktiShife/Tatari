@@ -5,13 +5,16 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
-  Filter,
   Star,
   MapPin,
-  CheckCircle,
   Clock,
-  Sparkles,
-  BriefcaseBusiness,
+  MessageSquare,
+  Heart,
+  CheckCircle2,
+  Loader2,
+  Zap,
+  ShieldCheck,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,14 +31,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 type Provider = {
   id: string;
@@ -94,7 +90,7 @@ function FindProvidersContent() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [categories, setCategories] = useState<string[]>(["all"]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [, setError] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -158,7 +154,8 @@ function FindProvidersContent() {
           completedJobs: Number(data.completedJobs || 0),
           responseTime: data.responseTime || "Not set",
           badges: Array.isArray(data.badges) ? data.badges : [],
-          description: data.bio || "Professional service provider on the platform.",
+          description:
+            data.bio || "Professional service provider on the platform.",
           availability: data.availability || "Available Tomorrow",
         });
       } catch {
@@ -168,7 +165,22 @@ function FindProvidersContent() {
 
     fetchProvider();
   }, [providerIdFromQuery]);
+  // Place this inside FindProvidersContent, above the return statement
+  const toggleSave = (p: Provider) => {
+    const isSaved = savedProviderIds.includes(p.id);
 
+    setSavedProviderIds((prev) =>
+      isSaved ? prev.filter((id) => id !== p.id) : [...prev, p.id],
+    );
+
+    toast({
+      title: isSaved ? "Removed from saved" : "Provider saved",
+      description: isSaved
+        ? `${p.name} was removed from your list.`
+        : `${p.name} was added to your list.`,
+      variant: isSaved ? "default" : ("success" as any), // Using 'as any' to avoid strict variant types if needed
+    });
+  };
   useEffect(() => {
     const timeout = setTimeout(async () => {
       setLoading(true);
@@ -220,373 +232,456 @@ function FindProvidersContent() {
     return () => clearTimeout(timeout);
   }, [searchQuery, selectedCategory, sortBy, priceRange, filters]);
 
-  const toggleSaveProvider = (provider: Provider) => {
-    const alreadySaved = savedProviderIds.includes(provider.id);
-    setSavedProviderIds((prev) =>
-      alreadySaved
-        ? prev.filter((id) => id !== provider.id)
-        : [...prev, provider.id],
-    );
-    toast({
-      title: alreadySaved ? "Removed from saved providers" : "Provider saved",
-      description: alreadySaved
-        ? `${provider.name} was removed from your saved list.`
-        : `${provider.name} was added to your saved list.`,
-    });
-  };
+  // const toggleSaveProvider = (provider: Provider) => {
+  //   const alreadySaved = savedProviderIds.includes(provider.id);
+  //   setSavedProviderIds((prev) =>
+  //     alreadySaved
+  //       ? prev.filter((id) => id !== provider.id)
+  //       : [...prev, provider.id],
+  //   );
+  //   toast({
+  //     title: alreadySaved ? "Removed from saved providers" : "Provider saved",
+  //     description: alreadySaved
+  //       ? `${provider.name} was removed from your saved list.`
+  //       : `${provider.name} was added to your saved list.`,
+  //   });
+  // };
 
   return (
-    <div className="space-y-6 text-slate-900">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-              <Sparkles className="h-4 w-4" />
-              Trusted Marketplace
+    <div className="max-w-[1400px] mx-auto space-y-8 pb-20">
+      {/* 1. Header Banner */}
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 p-8 md:p-12 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-indigo-600/20 to-transparent z-0" />
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-widest">
+              <Zap size={14} className="fill-indigo-400" />
+              Verified Professionals
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Find Service Providers
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+              Find an Expert
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Compare verified professionals, pricing, ratings, and response speed.
+            <p className="text-slate-400 text-lg max-w-xl">
+              Connect with top-rated service providers. Verified by Tatari for
+              quality and reliability.
             </p>
           </div>
-          <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
-            <Link href="/client/post-job">Post a Job</Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <div className="text-2xl font-black text-indigo-400">850+</div>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+                Active Pros
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <div className="text-2xl font-black text-emerald-400">4.9/5</div>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+                Avg. Rating
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-3 lg:flex-row">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                placeholder="Search by name, category, skill, or location..."
-                className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:w-auto">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[190px]">
-                  <BriefcaseBusiness className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category === "all" ? "All Categories" : category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[190px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rating">Highest Rated</SelectItem>
-                  <SelectItem value="distance">Nearest First</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                  <SelectItem value="reviews">Most Reviews</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* 2. Global Search Bar */}
+      <div className="relative -mt-14 z-20 px-4 md:px-12">
+        <div className="bg-white p-2 rounded-2xl shadow-2xl shadow-slate-200 border border-slate-100 flex flex-col md:flex-row gap-2">
+          <div className="flex-1 relative">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              size={20}
+            />
+            <Input
+              className="h-14 pl-12 border-none focus-visible:ring-0 text-lg"
+              placeholder="What service do you need today?"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="hidden md:block w-px h-10 bg-slate-100 my-auto" />
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="h-14 md:w-[220px] border-none focus:ring-0 font-bold text-slate-700 capitalize">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c === "all" ? "All Services" : c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button className="h-14 px-10 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-lg font-bold shadow-lg shadow-indigo-100">
+            Find Pro
+          </Button>
+        </div>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
-        <div className="space-y-6 lg:col-span-1">
-          <Card className="border-slate-200 shadow-sm">
-            <CardContent className="space-y-6 pt-6">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-slate-900">Hourly Rate</h3>
-                <div className="px-1">
+      <div className="grid lg:grid-cols-12 gap-8 px-2">
+        {/* 3. Filter Sidebar (Sticky) */}
+        <aside className="lg:col-span-3 space-y-6">
+          <div className="sticky top-24 space-y-6">
+            <Card className="rounded-[2rem] border-slate-100 shadow-sm bg-white overflow-hidden">
+              <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="font-bold text-slate-900">Advanced Filters</h3>
+                <button
+                  onClick={() => {}}
+                  className="text-xs font-bold text-indigo-600 hover:underline"
+                >
+                  Reset
+                </button>
+              </div>
+              <CardContent className="p-6 space-y-8">
+                {/* Hourly Rate */}
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Budget (ETB/hr)
+                  </Label>
                   <Slider
                     value={priceRange}
                     onValueChange={setPriceRange}
                     max={1000}
                     step={50}
-                    className="my-4"
+                    className="py-4"
                   />
-                  <div className="flex justify-between text-sm text-slate-600">
-                    <span>₵ {priceRange[0]}</span>
-                    <span>₵ {priceRange[1]}</span>
+                  <div className="flex justify-between font-bold text-slate-900 text-sm">
+                    <span>₵{priceRange[0]}</span>
+                    <span>₵{priceRange[1]}</span>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <h3 className="font-semibold text-slate-900">Provider Filters</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="verified"
-                      checked={filters.verifiedOnly}
-                      onCheckedChange={(checked) =>
-                        setFilters((prev) => ({ ...prev, verifiedOnly: checked as boolean }))
-                      }
-                    />
-                    <Label htmlFor="verified" className="flex cursor-pointer items-center gap-2 text-sm font-normal">
-                      <CheckCircle size={14} className="text-emerald-600" />
-                      Verified Only
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="available"
-                      checked={filters.availableNow}
-                      onCheckedChange={(checked) =>
-                        setFilters((prev) => ({ ...prev, availableNow: checked as boolean }))
-                      }
-                    />
-                    <Label htmlFor="available" className="flex cursor-pointer items-center gap-2 text-sm font-normal">
-                      <Clock size={14} className="text-sky-600" />
-                      Available Now
-                    </Label>
+                {/* Status Filters */}
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Availability & Trust
+                  </Label>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        id: "verified",
+                        label: "Verified Experts",
+                        icon: ShieldCheck,
+                        color: "text-indigo-600",
+                        state: filters.verifiedOnly,
+                      },
+                      {
+                        id: "available",
+                        label: "Available Now",
+                        icon: Clock,
+                        color: "text-emerald-500",
+                        state: filters.availableNow,
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between group cursor-pointer"
+                        onClick={() =>
+                          setFilters((p) => ({
+                            ...p,
+                            [item.id === "verified"
+                              ? "verifiedOnly"
+                              : "availableNow"]: !item.state,
+                          }))
+                        }
+                      >
+                        <div className="flex items-center gap-3">
+                          <item.icon size={18} className={item.color} />
+                          <span className="text-sm font-bold text-slate-600">
+                            {item.label}
+                          </span>
+                        </div>
+                        <Checkbox checked={item.state} />
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <h3 className="font-semibold text-slate-900">Minimum Rating</h3>
-                <div className="space-y-2">
-                  {[0, 3.5, 4.0, 4.5].map((rating) => (
-                    <Button
-                      key={rating}
-                      type="button"
-                      variant={filters.minRating === rating ? "default" : "outline"}
-                      className="h-9 w-full justify-start"
-                      onClick={() => setFilters((prev) => ({ ...prev, minRating: rating }))}
-                    >
-                      {rating === 0 ? "Any Rating" : `${rating}+ Stars`}
-                    </Button>
-                  ))}
+                {/* Minimum Rating */}
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Minimum Rating
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[4.5, 4.0, 3.5, 0].map((r) => (
+                      <Button
+                        key={r}
+                        variant={
+                          filters.minRating === r ? "default" : "outline"
+                        }
+                        className={`h-10 rounded-xl font-bold text-xs ${filters.minRating === r ? "bg-indigo-600" : "border-slate-100 text-slate-500"}`}
+                        onClick={() =>
+                          setFilters((p) => ({ ...p, minRating: r }))
+                        }
+                      >
+                        {r === 0 ? "All" : `${r}+ Stars`}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        </aside>
 
-        <div className="space-y-4 lg:col-span-3">
+        {/* 4. Provider Results List */}
+        <main className="lg:col-span-9 space-y-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-slate-500 font-medium">
+              Found{" "}
+              <span className="text-slate-900 font-bold">
+                {providers.length}
+              </span>{" "}
+              professionals
+            </p>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px] border-none bg-transparent font-bold text-indigo-600 focus:ring-0">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="rating">Highest Rated</SelectItem>
+                <SelectItem value="price-low">Lowest Rate</SelectItem>
+                <SelectItem value="reviews">Most Reviews</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {loading ? (
-            <Card className="border-slate-200">
-              <CardContent className="py-12 text-center text-sm text-slate-500">
-                Loading providers...
-              </CardContent>
-            </Card>
-          ) : error ? (
-            <Card className="border-red-200 bg-red-50/80">
-              <CardContent className="py-12 text-center text-sm text-red-700">
-                {error}
-              </CardContent>
-            </Card>
-          ) : (
-            providers.map((provider) => (
+            <div className="py-20 flex flex-col items-center gap-4">
+              <Loader2 className="animate-spin text-indigo-600" size={40} />
+              <p className="text-slate-400 font-bold italic">
+                Finding the best experts...
+              </p>
+            </div>
+          ) : providers.length > 0 ? (
+            providers.map((p) => (
               <Card
-                key={provider.id}
-                className="border-slate-200 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+                key={p.id}
+                className="group rounded-[2.5rem] border-slate-100 bg-white hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-50 transition-all duration-300"
               >
-                <CardContent className="p-5">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 to-slate-700">
-                      <span className="text-xl font-bold text-white">
-                        {provider.name.charAt(0)}
-                      </span>
+                <CardContent className="p-8 flex flex-col lg:flex-row gap-8">
+                  {/* Avatar Block */}
+                  <div className="relative shrink-0 flex flex-col items-center">
+                    <div className="h-24 w-24 rounded-[2rem] bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-indigo-100">
+                      {p.name.charAt(0)}
+                    </div>
+                    {p.verified && (
+                      <div className="absolute -bottom-2 bg-white rounded-full p-1 shadow-md">
+                        <CheckCircle2 className="text-indigo-600" size={24} />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => toggleSave(p)}
+                      className={`mt-6 h-10 w-10 rounded-xl flex items-center justify-center border transition-all ${savedProviderIds.includes(p.id) ? "bg-rose-50 border-rose-100 text-rose-500 shadow-sm" : "border-slate-100 text-slate-300 hover:text-rose-400"}`}
+                    >
+                      <Heart
+                        size={20}
+                        className={
+                          savedProviderIds.includes(p.id) ? "fill-rose-500" : ""
+                        }
+                      />
+                    </button>
+                  </div>
+
+                  {/* Info Block */}
+                  <div className="flex-1 space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
+                          {p.name}
+                        </h3>
+                        <div className="flex items-center gap-3 mt-1 font-bold text-sm">
+                          <div className="flex items-center gap-1 text-amber-500">
+                            <Star size={16} className="fill-amber-500" />{" "}
+                            {p.rating}
+                          </div>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-slate-500">
+                            {p.reviews} Reviews
+                          </span>
+                          <span className="text-slate-300">•</span>
+                          <Badge
+                            variant="secondary"
+                            className="bg-slate-100 text-slate-600 border-none capitalize"
+                          >
+                            {p.category}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <div className="text-3xl font-black text-slate-900">
+                          ₵{p.hourlyMin}
+                          <span className="text-sm text-slate-400">/hr</span>
+                        </div>
+                        <Badge className="mt-1 bg-emerald-50 text-emerald-700 border-none rounded-full px-3">
+                          {p.availability}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="flex-1">
-                      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg font-semibold text-slate-900">
-                              {provider.name}
-                            </h3>
-                            {provider.badges.map((badge) => (
-                              <Badge
-                                key={badge}
-                                variant="secondary"
-                                className="border-slate-200 bg-slate-100 text-slate-700"
-                              >
-                                {badge}
-                              </Badge>
-                            ))}
-                          </div>
-                          <p className="mt-1 text-slate-600">{provider.description}</p>
+                    <p className="text-slate-500 leading-relaxed italic line-clamp-2">
+                      {p.description ||
+                        "Top-rated professional with 5+ years experience in the field. Satisfaction guaranteed."}
+                    </p>
 
-                          <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-600 md:grid-cols-3">
-                            <div className="flex items-center gap-2">
-                              <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                              <span>
-                                {provider.rating} ({provider.reviews} reviews)
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              <span>
-                                {provider.location} | {provider.distance} km away
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <BriefcaseBusiness className="h-4 w-4" />
-                              <span>{provider.completedJobs} jobs completed</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="lg:text-right">
-                          <div className="text-2xl font-semibold text-slate-900">
-                            ₵ {provider.hourlyMin}-{provider.hourlyMax}
-                          </div>
-                          <div className="text-sm text-slate-500">per hour</div>
-                          <div className="mt-2">
-                            <Badge
-                              variant="outline"
-                              className={
-                                provider.availability === "Available Now"
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-sky-200 bg-sky-50 text-sky-700"
-                              }
-                            >
-                              {provider.availability}
-                            </Badge>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-slate-50">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                        <MapPin size={16} className="text-slate-400" />{" "}
+                        {p.location}
                       </div>
-
-                      <div className="mt-4 flex flex-col justify-between gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center">
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                          <Clock className="h-4 w-4" />
-                          <span>{provider.responseTime} avg. response</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                            onClick={() => setProfileProvider(provider)}
-                          >
-                            View Profile
-                          </Button>
-                          <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => setContactProvider(provider)}>
-                            Contact Provider
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={savedProviderIds.includes(provider.id) ? "default" : "outline"}
-                            className={
-                              savedProviderIds.includes(provider.id)
-                                ? ""
-                                : "border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                            }
-                            onClick={() => toggleSaveProvider(provider)}
-                          >
-                            {savedProviderIds.includes(provider.id) ? "Saved" : "Save"}
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                        <Briefcase size={16} className="text-slate-400" />{" "}
+                        {p.completedJobs} Jobs Done
                       </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                        <Clock size={16} className="text-slate-400" />{" "}
+                        {p.responseTime}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 pt-4">
+                      <Button
+                        className="bg-slate-900 hover:bg-slate-800 h-12 px-8 rounded-xl font-bold text-white shadow-xl shadow-slate-100"
+                        onClick={() => setContactProvider(p)}
+                      >
+                        Contact Expert
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-12 px-8 rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50"
+                        onClick={() => setProfileProvider(p)}
+                      >
+                        View Details
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))
-          )}
-
-          {!loading && !error && providers.length === 0 && (
-            <Card className="border-slate-200">
-              <CardContent className="py-12 text-center">
-                <p className="text-slate-600">
-                  No providers match your current filters.
-                </p>
-                <Button
-                  variant="outline"
-                  className="mt-4 border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("all");
-                    setSortBy("rating");
-                    setPriceRange([0, 1000]);
-                    setFilters({
-                      verifiedOnly: true,
-                      availableNow: false,
-                      minRating: 0,
-                    });
-                  }}
-                >
-                  Clear All Filters
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-
-      <Dialog open={Boolean(profileProvider)} onOpenChange={(open) => !open && setProfileProvider(null)}>
-        <DialogContent className="border-slate-200 bg-white text-slate-900">
-          <DialogHeader>
-            <DialogTitle>{profileProvider?.name || "Provider Profile"}</DialogTitle>
-            <DialogDescription className="text-slate-600">
-              Detailed provider information from your current search results.
-            </DialogDescription>
-          </DialogHeader>
-          {profileProvider && (
-            <div className="space-y-3 text-sm text-slate-700">
-              <div><span className="text-slate-500">Category:</span> {profileProvider.category}</div>
-              <div><span className="text-slate-500">Hourly Rate:</span> ₵ {profileProvider.hourlyMin}-{profileProvider.hourlyMax}</div>
-              <div><span className="text-slate-500">Rating:</span> {profileProvider.rating} ({profileProvider.reviews} reviews)</div>
-              <div><span className="text-slate-500">Location:</span> {profileProvider.location}</div>
-              <div><span className="text-slate-500">Completed Jobs:</span> {profileProvider.completedJobs}</div>
-              <div><span className="text-slate-500">Description:</span> {profileProvider.description}</div>
+          ) : (
+            <div className="py-20 text-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+              <Search className="mx-auto text-slate-300 mb-4" size={48} />
+              <h3 className="text-xl font-bold text-slate-900">
+                No experts found
+              </h3>
+              <p className="text-slate-500 mt-2">
+                Try adjusting your filters or searching for something else.
+              </p>
+              <Button
+                variant="link"
+                className="text-indigo-600 mt-4 font-bold"
+                onClick={() => setSearchQuery("")}
+              >
+                Clear all filters
+              </Button>
             </div>
           )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-              onClick={() => {
-                if (profileProvider) setContactProvider(profileProvider);
-                setProfileProvider(null);
-              }}
-            >
-              Contact Provider
-            </Button>
-            <Button className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => setProfileProvider(null)}>
-              Close
-            </Button>
-          </DialogFooter>
+        </main>
+      </div>
+
+      {/* 5. Modern Dialogs (Keep original logic) */}
+      <Dialog
+        open={Boolean(profileProvider)}
+        onOpenChange={() => setProfileProvider(null)}
+      >
+        <DialogContent className="rounded-[2.5rem] border-none p-10 max-w-2xl">
+          {profileProvider && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-6">
+                <div className="h-20 w-20 rounded-3xl bg-indigo-600 flex items-center justify-center text-2xl font-black text-white">
+                  {profileProvider.name.charAt(0)}
+                </div>
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900">
+                    {profileProvider.name}
+                  </h2>
+                  <p className="text-indigo-600 font-bold">
+                    {profileProvider.category}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-6 rounded-3xl">
+                <div>
+                  <div className="text-[10px] uppercase font-black text-slate-400 tracking-widest">
+                    Rate
+                  </div>
+                  <div className="font-bold">
+                    ₵{profileProvider.hourlyMin}-{profileProvider.hourlyMax}/hr
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-black text-slate-400 tracking-widest">
+                    Jobs
+                  </div>
+                  <div className="font-bold">
+                    {profileProvider.completedJobs} Completed
+                  </div>
+                </div>
+              </div>
+              <p className="text-slate-600 leading-relaxed italic">
+                {profileProvider.description}
+              </p>
+              <div className="flex gap-4 pt-4">
+                <Button
+                  className="flex-1 h-14 rounded-2xl bg-indigo-600 font-bold shadow-xl shadow-indigo-100"
+                  onClick={() => {
+                    setContactProvider(profileProvider);
+                    setProfileProvider(null);
+                  }}
+                >
+                  Message Provider
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-14 rounded-2xl border-slate-200 font-bold px-8"
+                  onClick={() => setProfileProvider(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(contactProvider)} onOpenChange={(open) => !open && setContactProvider(null)}>
-        <DialogContent className="border-slate-200 bg-white text-slate-900">
-          <DialogHeader>
-            <DialogTitle>Contact {contactProvider?.name || "Provider"}</DialogTitle>
-            <DialogDescription className="text-slate-600">
-              Start communication by opening messages for an existing job, or post a new job request for this provider.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button asChild variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900">
-              <Link href="/client/messages">Open Messages</Link>
+      <Dialog
+        open={Boolean(contactProvider)}
+        onOpenChange={() => setContactProvider(null)}
+      >
+        <DialogContent className="rounded-[2.5rem] border-none p-10 text-center">
+          <div className="h-20 w-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <MessageSquare size={32} />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 mb-2">
+            Message {contactProvider?.name}
+          </h2>
+          <p className="text-slate-500 mb-10 leading-relaxed">
+            Select how you&apos;d like to reach out to this professional.
+          </p>
+          <div className="flex flex-col gap-4">
+            <Button
+              className="h-14 rounded-2xl bg-slate-900 font-bold text-lg"
+              asChild
+            >
+              <Link href="/client/messages">Open Inbox</Link>
             </Button>
-            <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
+            <Button
+              className="h-14 rounded-2xl bg-indigo-600 font-bold text-lg shadow-xl shadow-indigo-100"
+              asChild
+            >
               <Link
-                href={
-                  contactProvider
-                    ? `/client/post-job?preferredProviderId=${encodeURIComponent(contactProvider.id)}&preferredProviderName=${encodeURIComponent(contactProvider.name)}`
-                    : "/client/post-job"
-                }
+                href={`/client/post-job?preferredProviderId=${contactProvider?.id}&preferredProviderName=${contactProvider?.name}`}
               >
-                Post Job for Provider
+                Post Project to {contactProvider?.name.split(" ")[0]}
               </Link>
             </Button>
-          </DialogFooter>
+            <Button
+              variant="ghost"
+              className="h-14 rounded-2xl font-bold text-slate-400"
+              onClick={() => setContactProvider(null)}
+            >
+              Cancel
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -595,7 +690,13 @@ function FindProvidersContent() {
 
 export default function FindProvidersPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading providers...</div>}>
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center">
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
+        </div>
+      }
+    >
       <FindProvidersContent />
     </Suspense>
   );

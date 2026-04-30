@@ -1,146 +1,79 @@
-import React from "react";
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+"use client";
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle, AlertCircle, DollarSign } from "lucide-react";
+import { Clock, MoreVertical } from "lucide-react";
+import Link from "next/link";
 
-export interface JobItem {
+interface Job {
   id: string;
   title: string;
-  provider: string;
   status: "pending" | "quoted" | "accepted" | "in_progress" | "completed";
   price: string;
   posted: string;
 }
 
-interface RecentJobsProps {
-  jobs: JobItem[];
-}
-
-const statusConfig = {
-  pending: {
-    label: "Pending Quotes",
-    variant: "secondary" as const,
-    icon: Clock,
-    color: "text-gray-500",
-    bgColor: "bg-gray-100",
-  },
-  quoted: {
-    label: "Quotes Received",
-    variant: "outline" as const,
-    icon: DollarSign,
-    color: "text-blue-500",
-    bgColor: "bg-blue-100",
-  },
-  accepted: {
-    label: "Accepted",
-    variant: "default" as const,
-    icon: CheckCircle,
-    color: "text-green-500",
-    bgColor: "bg-green-100",
-  },
-  in_progress: {
-    label: "In Progress",
-    variant: "secondary" as const,
-    icon: AlertCircle,
-    color: "text-orange-500",
-    bgColor: "bg-orange-100",
-  },
-  completed: {
-    label: "Completed",
-    variant: "default" as const,
-    icon: CheckCircle,
-    color: "text-purple-500",
-    bgColor: "bg-purple-100",
-  },
+const statusStyles = {
+  pending: "bg-slate-100 text-slate-600",
+  quoted: "bg-indigo-50 text-indigo-700",
+  accepted: "bg-amber-50 text-amber-700",
+  in_progress: "bg-blue-50 text-blue-700",
+  completed: "bg-emerald-50 text-emerald-700",
 };
 
-export function RecentJobs({ jobs }: RecentJobsProps) {
+export function RecentJobs({ jobs }: { jobs: Job[] }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Recent Jobs</CardTitle>
-          <CardDescription>
-            Your recent job postings and their status
-          </CardDescription>
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/dashboard/client/jobs">View All</Link>
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {jobs.map((job) => {
-            const status = statusConfig[job.status];
-            const StatusIcon = status.icon;
-
-            return (
-              <div
-                key={job.id}
-                className="flex items-center justify-between p-4 rounded-lg border hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`p-2 rounded-full ${status.bgColor} ${status.color}`}
-                  >
-                    <StatusIcon size={20} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{job.title}</h3>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Provider:{" "}
-                      <span className="font-medium">{job.provider}</span>
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Posted {job.posted}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-bold">{job.price}</div>
-                  <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="ghost" asChild>
-                      <Link href={`/dashboard/client/jobs/${job.id}`}>
-                        Details
-                      </Link>
-                    </Button>
-                    {job.status === "quoted" && (
-                      <Button size="sm">Review Quotes</Button>
-                    )}
-                    {job.status === "in_progress" && (
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={`/client/jobs/${job.id}/updates`}>
-                          View Updates
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
+    <div className="bg-white rounded-3xl">
+      <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-slate-900">Recent Projects</h3>
+        <Link
+          href="/client/jobs"
+          className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
+        >
+          View All
+        </Link>
+      </div>
+      <div className="divide-y divide-slate-50">
+        {jobs.map((job) => (
+          <div
+            key={job.id}
+            className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:shadow-sm transition-all">
+                <Clock size={20} />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  {job.title}
+                </h4>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-xs font-bold text-slate-400">
+                    {job.posted}
+                  </span>
+                  <span className="text-xs font-bold text-slate-900">
+                    {job.price}
+                  </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
 
+            <div className="flex items-center gap-4">
+              <Badge
+                className={`px-3 py-1 rounded-full border-none shadow-none capitalize font-bold text-[10px] ${statusStyles[job.status]}`}
+              >
+                {job.status.replace("_", " ")}
+              </Badge>
+              <button className="text-slate-300 hover:text-slate-600 transition-colors">
+                <MoreVertical size={20} />
+              </button>
+            </div>
+          </div>
+        ))}
         {jobs.length === 0 && (
-          <div className="text-center py-8">
-            <div className="text-gray-400 mb-2">No jobs yet</div>
-            <Button asChild>
-              <Link href="/dashboard/client/post-job">Post Your First Job</Link>
-            </Button>
+          <div className="p-12 text-center text-slate-400 font-medium italic">
+            No active projects found. Post your first job to get started!
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

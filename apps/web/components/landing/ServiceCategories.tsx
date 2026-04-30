@@ -1,4 +1,4 @@
-import React from "react";
+"use client";
 import {
   Wrench,
   PaintBucket,
@@ -6,119 +6,92 @@ import {
   GraduationCap,
   Home,
   Code,
+  ArrowRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const categories = [
   {
     icon: Wrench,
     title: "Home Repair",
-    description: "Plumbing, electrical, appliance repair",
-    count: "250+ Pros",
-    color: "bg-blue-100 text-blue-600",
-    popular: true,
-  },
-  {
-    icon: PaintBucket,
-    title: "Painting & Renovation",
-    description: "Interior, exterior, wall treatments",
-    count: "180+ Pros",
-    color: "bg-green-100 text-green-600",
-    popular: true,
-  },
-  {
-    icon: Home,
-    title: "Cleaning Services",
-    description: "Home cleaning, deep cleaning, office",
-    count: "320+ Pros",
-    color: "bg-purple-100 text-purple-600",
-  },
-  {
-    icon: Cpu,
-    title: "Appliance Repair",
-    description: "AC, fridge, washing machine, oven",
-    count: "150+ Pros",
-    color: "bg-orange-100 text-orange-600",
+    desc: "Plumbing & Electrical",
+    color: "bg-blue-50 text-blue-600",
   },
   {
     icon: Code,
-    title: "Digital Services",
-    description: "Web design, graphic design, social media",
-    count: "210+ Pros",
-    color: "bg-red-100 text-red-600",
-    popular: true,
+    title: "Digital Pro",
+    desc: "Design & Development",
+    color: "bg-indigo-50 text-indigo-600",
+    hot: true,
+  },
+  {
+    icon: Home,
+    title: "Cleaning",
+    desc: "Deep Home & Office",
+    color: "bg-emerald-50 text-emerald-600",
   },
   {
     icon: GraduationCap,
     title: "Tutoring",
-    description: "Academic subjects, languages, skills",
-    count: "190+ Pros",
-    color: "bg-indigo-100 text-indigo-600",
+    desc: "Languages & Skills",
+    color: "bg-violet-50 text-violet-600",
+  },
+  {
+    icon: PaintBucket,
+    title: "Renovation",
+    desc: "Interior & Exterior",
+    color: "bg-rose-50 text-rose-600",
+  },
+  {
+    icon: Cpu,
+    title: "Tech Support",
+    desc: "Appliances & Hardware",
+    color: "bg-amber-50 text-amber-600",
   },
 ];
 
 export default function ServiceCategories() {
   return (
-    <section id="services" className="py-20 bg-gray-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Popular Service Categories
-          </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Find trusted professionals for all your needs. All services are
-            backed by our satisfaction guarantee.
-          </p>
+    <section className="py-24 bg-white">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              Browse by Category
+            </h2>
+            <p className="text-slate-600 text-lg">
+              Choose from over 50+ professional services tailored to your needs.
+            </p>
+          </div>
+          <button className="flex items-center gap-2 text-indigo-600 font-semibold hover:underline">
+            View All Categories <ArrowRight size={18} />
+          </button>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {categories.map((category) => {
-            const Icon = category.icon;
-            return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories.map((cat, i) => (
+            <div
+              key={i}
+              className="group p-8 rounded-2xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:shadow-xl hover:shadow-indigo-50 transition-all duration-300 cursor-pointer"
+            >
               <div
-                key={category.title}
-                className="bg-white rounded-xl p-6 border hover:border-blue-300 hover:shadow-lg transition-all duration-300 group cursor-pointer"
+                className={`w-14 h-14 rounded-xl ${cat.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className={`w-12 h-12 rounded-lg ${category.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
-                  >
-                    <Icon size={24} />
-                  </div>
-                  {category.popular && (
-                    <Badge
-                      variant="secondary"
-                      className="bg-yellow-100 text-yellow-800"
-                    >
-                      Popular
-                    </Badge>
-                  )}
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{category.title}</h3>
-                <p className="text-gray-600 mb-4">{category.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    {category.count}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="group-hover:text-blue-600"
-                  >
-                    Browse →
-                  </Button>
-                </div>
+                <cat.icon size={28} />
               </div>
-            );
-          })}
-        </div>
-
-        <div className="text-center">
-          <Button size="lg" variant="outline" className="mr-4">
-            View All Categories
-          </Button>
-          <Button size="lg">Post Your Task</Button>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-xl font-bold text-slate-900">
+                  {cat.title}
+                </h3>
+                {cat.hot && (
+                  <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-none">
+                    Hot
+                  </Badge>
+                )}
+              </div>
+              <p className="text-slate-600">{cat.desc}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

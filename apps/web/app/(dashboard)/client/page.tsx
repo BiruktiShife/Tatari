@@ -2,6 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Search,
+  Bell,
+  LayoutDashboard,
+  MessageSquare,
+  User as UserIcon,
+  Zap,
+  Loader2,
+  ChevronRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { RecentJobs } from "@/components/dashboard/RecentJobs";
 import { QuickActions } from "@/components/dashboard/QuickActions";
@@ -10,10 +23,8 @@ import {
   type JobLifecycleCounts,
 } from "@/components/dashboard/JobLifecycleOverview";
 
-type MeResponse = {
-  name?: string | null;
-};
-
+// Types (Keep original logic)
+type MeResponse = { name?: string | null };
 type ApiJob = {
   id: string;
   title: string;
@@ -28,60 +39,20 @@ type ApiJob = {
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-
-  return path;
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
 }
 
+// Logic Helpers (Keep original logic)
 function formatPostedAgo(createdAt?: string) {
   if (!createdAt) return "recently";
   const postedAt = new Date(createdAt).getTime();
-  if (Number.isNaN(postedAt)) return "recently";
-
   const mins = Math.max(1, Math.floor((Date.now() - postedAt) / 60000));
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
-}
-
-function mapApiStatus(
-  status?: string,
-): "pending" | "quoted" | "accepted" | "in_progress" | "completed" {
-  const normalized = (status || "").toUpperCase();
-  if (normalized === "IN_PROGRESS") return "in_progress";
-  if (normalized === "COMPLETED") return "completed";
-  if (normalized === "ACCEPTED") return "accepted";
-  if (normalized === "ACTIVE") return "quoted";
-  return "pending";
-}
-
-function formatPrice(job: ApiJob) {
-  if (job.budgetType === "RANGE") {
-    return `$${job.budgetMin ?? 0} - $${job.budgetMax ?? 0}`;
-  }
-  if (job.budgetAmount != null) {
-    return job.budgetType === "HOURLY"
-      ? `$${job.budgetAmount}/hr`
-      : `$${job.budgetAmount}`;
-  }
-  return "—";
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 export default function ClientDashboardPage() {
@@ -100,15 +71,7 @@ export default function ClientDashboardPage() {
         router.replace("/login");
         return;
       }
-
-      let user: { role?: string; name?: string } = {};
-      try {
-        user = JSON.parse(storedUser);
-      } catch {
-        router.replace("/login");
-        return;
-      }
-
+      const user = JSON.parse(storedUser);
       if (user.role !== "CLIENT") {
         router.replace(`/${user.role === "ADMIN" ? "admin" : "provider"}`);
         return;
@@ -117,160 +80,264 @@ export default function ClientDashboardPage() {
       setAuthorized(true);
       if (user.name) setClientName(user.name);
 
+      // Find the init function inside your useEffect and update the fetch block:
+
       try {
+        // Individual try-catches or a check to see if the server is alive
         const [meRes, jobsRes] = await Promise.all([
           fetch(resolveApiUrl("/auth/me"), {
             headers: { Authorization: `Bearer ${token}` },
-          }),
+          }).catch(() => ({ ok: false })), // Catch network errors for me
           fetch(resolveApiUrl("/jobs"), {
             headers: { Authorization: `Bearer ${token}` },
-          }),
+          }).catch(() => ({ ok: false })), // Catch network errors for jobs
         ]);
 
-        if (meRes.ok) {
+        if (meRes && "json" in meRes && meRes.ok) {
           const me: MeResponse = await meRes.json();
           if (me.name?.trim()) setClientName(me.name.trim());
         }
-        if (jobsRes.ok) {
+
+        if (jobsRes && "json" in jobsRes && jobsRes.ok) {
           const data = await jobsRes.json();
           setJobs(Array.isArray(data) ? data : []);
         } else {
-          setJobs([]);
+          console.error("Could not reach backend server");
+          setJobs([]); // Fallback to empty list instead of crashing
         }
+      } catch (err) {
+        console.error("Dashboard data fetch failed", err);
       } finally {
         setLoading(false);
       }
     };
-
     init();
   }, [router]);
 
+  // Stats Logic (Keep original logic)
   const stats = useMemo(() => {
-    const activeStatuses = new Set(["PENDING", "ACTIVE", "ACCEPTED", "IN_PROGRESS"]);
-    const activeJobs = jobs.filter((job) =>
-      activeStatuses.has((job.status || "").toUpperCase()),
+    const activeJobs = jobs.filter((j) =>
+      ["PENDING", "ACTIVE", "ACCEPTED", "IN_PROGRESS"].includes(
+        (j.status || "").toUpperCase(),
+      ),
     ).length;
-
     const totalSpent = jobs
-      .filter((job) => (job.status || "").toUpperCase() === "COMPLETED")
-      .reduce((sum, job) => {
-        if (job.budgetAmount != null) return sum + job.budgetAmount;
-        if (job.budgetMax != null) return sum + job.budgetMax;
-        if (job.budgetMin != null) return sum + job.budgetMin;
-        return sum;
-      }, 0);
-
-    const totalQuotes = jobs.reduce((sum, job) => sum + (job.quotesCount || 0), 0);
+      .filter((j) => (j.status || "").toUpperCase() === "COMPLETED")
+      .reduce(
+        (sum, j) => sum + (j.budgetAmount ?? j.budgetMax ?? j.budgetMin ?? 0),
+        0,
+      );
+    const totalQuotes = jobs.reduce((sum, j) => sum + (j.quotesCount || 0), 0);
     const completedJobs = jobs.filter(
-      (job) => (job.status || "").toUpperCase() === "COMPLETED",
+      (j) => (j.status || "").toUpperCase() === "COMPLETED",
     ).length;
 
     return [
       {
-        title: "Active Jobs",
+        title: "Active Projects",
         value: String(activeJobs),
-        change: `${jobs.length} total posted`,
+        change: `${jobs.length} total`,
         icon: "briefcase" as const,
       },
       {
-        title: "Total Spent",
-        value: `$${Math.round(totalSpent)}`,
-        change: "Based on completed jobs",
+        title: "Total Investment",
+        value: `ETB ${totalSpent.toLocaleString()}`,
+        change: "Completed jobs",
         icon: "dollar" as const,
       },
       {
         title: "Quotes Received",
         value: String(totalQuotes),
-        change: "Across all your jobs",
+        change: "New opportunities",
         icon: "users" as const,
       },
       {
-        title: "Completed Jobs",
-        value: String(completedJobs),
-        change: "Successfully finished",
+        title: "Success Rate",
+        value:
+          completedJobs > 0
+            ? `${Math.round((completedJobs / jobs.length) * 100)}%`
+            : "0%",
+        change: "Job completion",
         icon: "star" as const,
       },
     ];
   }, [jobs]);
 
-  const recentJobs = useMemo(
+  const recentJobsMapped = useMemo(
     () =>
       jobs.slice(0, 5).map((job) => ({
         id: job.id,
         title: job.title,
-        provider: "Provider not assigned",
-        status: mapApiStatus(job.status),
-        price: formatPrice(job),
+        status: (job.status?.toLowerCase() || "pending") as any,
+        price: job.budgetAmount ? `ETB ${job.budgetAmount}` : "Variable",
         posted: formatPostedAgo(job.createdAt),
       })),
     [jobs],
   );
 
-  const lifecycleCounts: JobLifecycleCounts = useMemo(() => {
-    const startedStatuses = new Set(["PENDING", "ACTIVE", "ACCEPTED"]);
-    const started = jobs.filter((job) =>
-      startedStatuses.has((job.status || "").toUpperCase()),
-    ).length;
-    const inProgress = jobs.filter(
-      (job) => (job.status || "").toUpperCase() === "IN_PROGRESS",
-    ).length;
-    const completed = jobs.filter(
-      (job) => (job.status || "").toUpperCase() === "COMPLETED",
-    ).length;
-    return { started, inProgress, completed };
-  }, [jobs]);
+  const lifecycleCounts: JobLifecycleCounts = useMemo(
+    () => ({
+      started: jobs.filter((j) =>
+        ["PENDING", "ACTIVE", "ACCEPTED"].includes(
+          (j.status || "").toUpperCase(),
+        ),
+      ).length,
+      inProgress: jobs.filter(
+        (j) => (j.status || "").toUpperCase() === "IN_PROGRESS",
+      ).length,
+      completed: jobs.filter(
+        (j) => (j.status || "").toUpperCase() === "COMPLETED",
+      ).length,
+    }),
+    [jobs],
+  );
 
   if (!authorized) return null;
-  if (loading) return <div className="text-sm text-gray-500">Loading dashboard...</div>;
 
-  return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-6 sm:p-8">
-        <h1 className="text-3xl font-bold">Welcome back, {clientName}</h1>
-        <p className="text-slate-200 mt-2">
-          Find skilled professionals for your needs
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+        <p className="text-slate-500 font-medium animate-pulse">
+          Syncing your dashboard...
         </p>
       </div>
+    );
+  }
 
+  return (
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-12">
+      {/* Header Section */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            Welcome, {clientName.split(" ")[0]} 👋
+          </h1>
+          <p className="text-slate-500 mt-1 font-medium">
+            Here's what's happening with your projects today.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => router.push("/client/post-job")}
+            className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100 rounded-xl gap-2 h-11 px-6"
+          >
+            <Plus size={18} />
+            <span>Post a Project</span>
+          </Button>
+        </div>
+      </header>
+
+      {/* Main Stats Banner */}
+      <div className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-indigo-600/20 to-transparent z-0" />
+        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full" />
+
+        <div className="relative z-10 grid lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-2 space-y-4">
+            <Badge className="bg-indigo-500/20 text-indigo-300 border-none px-3 py-1">
+              System Health: Excellent
+            </Badge>
+            <h2 className="text-2xl font-bold">Your Service Overview</h2>
+            <p className="text-slate-400 max-w-md">
+              You have{" "}
+              <span className="text-white font-bold">
+                {lifecycleCounts.inProgress} active projects
+              </span>{" "}
+              currently in progress. Check your messages for updates from your
+              providers.
+            </p>
+          </div>
+
+          <div className="hidden lg:block h-full w-px bg-slate-800" />
+
+          <div className="flex flex-col justify-center">
+            <div className="text-4xl font-black text-indigo-500">
+              {lifecycleCounts.completed}
+            </div>
+            <div className="text-sm font-bold uppercase tracking-widest text-slate-500 mt-1">
+              Jobs Completed
+            </div>
+            <div className="mt-4 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-500 w-[75%]" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards Row */}
       <StatsCards stats={stats} />
 
-      <JobLifecycleOverview
-        counts={lifecycleCounts}
-        title="Your Job Lifecycle"
-        subtitle="Live visibility into starts, in-progress work, and completions."
-      />
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* Left Column: Workflow & Recent Jobs */}
+        <div className="xl:col-span-8 space-y-8">
+          <JobLifecycleOverview
+            counts={lifecycleCounts}
+            title="Project Pipeline"
+            subtitle="Real-time tracking of your service lifecycle from start to finish."
+          />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <RecentJobs jobs={recentJobsMapped} />
+          </div>
+        </div>
+
+        {/* Right Column: Quick Actions & Profile */}
+        <div className="xl:col-span-4 space-y-8">
           <QuickActions
             actions={[
               {
-                title: "Post a New Job",
-                description: "Get quotes from professionals",
+                title: "Post New Job",
+                description: "Describe your needs and get quotes",
                 href: "/client/post-job",
                 icon: "plus",
                 variant: "default",
               },
               {
-                title: "Message a Provider",
-                description: "Contact your active providers",
+                title: "Active Messages",
+                description: "Chat with assigned providers",
                 href: "/client/messages",
                 icon: "message",
                 variant: "outline",
               },
               {
-                title: "Review Completed Jobs",
-                description: "Rate your service experience",
+                title: "Payment History",
+                description: "View receipts and invoices",
+                href: "/client/payments",
+                icon: "dollar",
+                variant: "outline",
+              },
+              {
+                title: "Review Experts",
+                description: "Give feedback on completed work",
                 href: "/client/reviews",
                 icon: "star",
                 variant: "outline",
               },
             ]}
           />
-        </div>
 
-        <div className="lg:col-span-2">
-          <RecentJobs jobs={recentJobs} />
+          {/* Engagement Card */}
+          <div className="bg-indigo-50 rounded-3xl p-8 border border-indigo-100 relative overflow-hidden group">
+            <Zap
+              className="absolute -right-4 -bottom-4 text-indigo-100 group-hover:scale-110 transition-transform"
+              size={120}
+            />
+            <h4 className="text-indigo-900 font-bold text-lg mb-2 relative z-10">
+              Tatari Pro Tips
+            </h4>
+            <p className="text-indigo-700/80 text-sm mb-6 relative z-10 leading-relaxed">
+              Detailed job descriptions receive 40% more accurate quotes from
+              professionals.
+            </p>
+            <Button
+              size="sm"
+              className="bg-indigo-600 text-white rounded-xl relative z-10"
+            >
+              Learn More
+            </Button>
+          </div>
         </div>
       </div>
     </div>

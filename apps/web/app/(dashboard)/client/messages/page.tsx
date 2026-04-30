@@ -3,26 +3,11 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  Search,
-  Send,
-  MoreVertical,
-  CheckCheck,
-  Sparkles,
-  BriefcaseBusiness,
-} from "lucide-react";
+import { Search, Send, CheckCheck, MessageSquare, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 type Conversation = {
   key: string;
@@ -43,6 +28,7 @@ type MessageItem = {
 };
 
 type SelectedConversation = {
+  key: string;
   jobId: string;
   otherUserId?: string;
   otherUserName: string;
@@ -160,6 +146,7 @@ function ClientMessagesContent() {
     const existing = conversations.find((c) => c.jobId === jobId);
     if (existing) {
       setSelected({
+        key: existing.key,
         jobId: existing.jobId,
         otherUserId: existing.otherUserId,
         otherUserName: existing.otherUserName,
@@ -172,6 +159,7 @@ function ClientMessagesContent() {
     const first = conversations[0];
     if (!selected && first) {
       setSelected({
+        key: first.key,
         jobId: first.jobId,
         otherUserId: first.otherUserId,
         otherUserName: first.otherUserName,
@@ -197,14 +185,14 @@ function ClientMessagesContent() {
     );
   }, [conversations, search]);
 
-  const handleSelectConversation = (conv: Conversation) => {
-    setSelected({
-      jobId: conv.jobId,
-      otherUserId: conv.otherUserId,
-      otherUserName: conv.otherUserName,
-      jobTitle: conv.jobTitle,
-    });
-  };
+  // const handleSelectConversation = (conv: Conversation) => {
+  //   setSelected({
+  //     jobId: conv.jobId,
+  //     otherUserId: conv.otherUserId,
+  //     otherUserName: conv.otherUserName,
+  //     jobTitle: conv.jobTitle,
+  //   });
+  // };
 
   const sendMessage = async () => {
     const content = newMessage.trim();
@@ -235,212 +223,217 @@ function ClientMessagesContent() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="min-h-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-white md:h-[calc(100vh-280px)] md:flex">
-        <aside className="w-full border-b border-slate-200 bg-slate-50/60 md:w-80 md:border-b-0 md:border-r">
-          <div className="border-b border-slate-200 bg-white p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    <div className="max-w-[1600px] mx-auto">
+      <div className="flex h-[calc(100vh-180px)] min-h-[600px] rounded-[2.5rem] border border-slate-100 bg-white shadow-2xl shadow-slate-200 overflow-hidden">
+        {/* SIDEBAR: CONVERSATIONS */}
+        <aside className="w-full md:w-96 border-r border-slate-50 flex flex-col bg-slate-50/30">
+          <div className="p-6">
+            <h2 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">
+              Messages
+            </h2>
+            <div className="relative group">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"
+                size={18}
+              />
               <Input
-                placeholder="Search conversations..."
-                className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
+                placeholder="Search chats..."
+                className="h-12 pl-12 bg-white border-none rounded-2xl shadow-sm placeholder:text-slate-400"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="max-h-[320px] overflow-y-auto md:h-[calc(100vh-355px)] md:max-h-none">
+          <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-6">
             {loadingConversations ? (
-              <div className="p-4 text-sm text-slate-500">
-                Loading conversations...
+              <div className="flex flex-col items-center py-10 gap-2">
+                <Loader2 className="animate-spin text-indigo-600" size={24} />
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  Syncing Inbox
+                </p>
               </div>
-            ) : filteredConversations.length ? (
-              filteredConversations.map((conversation) => (
+            ) : filteredConversations.length > 0 ? (
+              filteredConversations.map((conv) => (
                 <button
-                  key={conversation.key}
-                  className={`w-full border-b border-slate-200 p-3 text-left transition-colors hover:bg-white ${
-                    selected?.jobId === conversation.jobId &&
-                    selected?.otherUserId === conversation.otherUserId
-                      ? "bg-white"
-                      : ""
+                  key={conv.key}
+                  onClick={() => setSelected(conv)}
+                  className={`w-full p-4 rounded-3xl transition-all flex items-start gap-4 text-left border ${
+                    selected?.key === conv.key
+                      ? "bg-white border-indigo-100 shadow-xl shadow-indigo-100/50"
+                      : "border-transparent hover:bg-white hover:shadow-md"
                   }`}
-                  onClick={() => handleSelectConversation(conversation)}
                 >
-                  <div className="flex items-start gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-sky-100 text-sky-700">
-                        {getInitials(conversation.otherUserName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-medium text-slate-900">
-                          {conversation.otherUserName}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatTime(conversation.lastMessageAt)}
-                        </p>
-                      </div>
-                      <p className="mt-1 truncate text-sm text-slate-600">
-                        {conversation.lastMessage}
+                  <Avatar className="h-12 w-12 rounded-2xl border-2 border-white shadow-sm">
+                    <AvatarFallback className="bg-indigo-600 text-white font-bold">
+                      {getInitials(conv.otherUserName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="font-bold text-slate-900 truncate">
+                        {conv.otherUserName}
                       </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="border-slate-200 bg-slate-50 text-xs text-slate-700"
-                        >
-                          {conversation.jobTitle}
-                        </Badge>
-                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase">
+                        {formatTime(conv.lastMessageAt)}
+                      </span>
                     </div>
+                    <p className="text-sm text-slate-500 truncate mb-2">
+                      {conv.lastMessage}
+                    </p>
                   </div>
                 </button>
               ))
             ) : (
-              <div className="p-4 text-sm text-slate-500">
-                No conversations yet
+              <div className="text-center py-20">
+                <p className="text-slate-400 text-sm italic font-medium">
+                  No conversations found.
+                </p>
               </div>
             )}
           </div>
         </aside>
 
-        <section className="flex min-h-[360px] flex-1 flex-col">
+        {/* MAIN: CHAT WINDOW */}
+        <main className="flex-1 flex flex-col bg-white">
           {selected ? (
             <>
-              <header className="flex items-center justify-between border-b border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar>
-                    <AvatarFallback className="bg-indigo-100 text-indigo-700">
+              {/* Chat Header */}
+              <header className="p-6 border-b border-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12 rounded-2xl border-2 border-slate-100">
+                    <AvatarFallback className="bg-slate-950 text-white font-bold">
                       {getInitials(selected.otherUserName)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">
+                  <div>
+                    <h3 className="font-bold text-slate-900 leading-none mb-1">
                       {selected.otherUserName}
-                    </p>
-                    <p className="flex items-center gap-1 truncate text-sm text-slate-500">
-                      <BriefcaseBusiness className="h-3.5 w-3.5" />
-                      {selected.jobTitle}
-                    </p>
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-tight truncate max-w-[200px]">
+                        Project: {selected.jobTitle}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/client/jobs/${selected.jobId}`}>
-                        View Job Details
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href={
-                          selected.otherUserId
-                            ? `/client/providers?providerId=${encodeURIComponent(
-                                selected.otherUserId,
-                              )}`
-                            : "/client/providers"
-                        }
-                      >
-                        View Provider Profile
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2 ml-7">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="rounded-xl border-slate-100 text-slate-600 font-bold hidden md:flex"
+                  >
+                    <Link href={`/client/jobs/${selected.jobId}`}>
+                      View Project
+                    </Link>
+                  </Button>
+                </div>
               </header>
 
-              <div className="flex-1 overflow-y-auto bg-slate-50/40 p-4">
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/20">
                 {loadingMessages ? (
-                  <div className="text-sm text-slate-500">
-                    Loading messages...
+                  <div className="flex justify-center py-20">
+                    <Loader2 className="animate-spin text-slate-300" />
                   </div>
-                ) : messages.length ? (
-                  <div className="space-y-3">
-                    {messages.map((msg) => {
-                      const mine = msg.senderId === myUserId;
-                      return (
-                        <div
-                          key={msg.id}
-                          className={`flex ${mine ? "justify-end" : "justify-start"}`}
-                        >
+                ) : messages.length > 0 ? (
+                  messages.map((msg) => {
+                    const mine = msg.senderId === myUserId;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                      >
+                        <div className={`max-w-[70%] space-y-1`}>
                           <div
-                            className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                            className={`px-5 py-3 rounded-3xl shadow-sm text-sm leading-relaxed ${
                               mine
-                                ? "rounded-br-sm bg-slate-900 text-white"
-                                : "rounded-bl-sm border border-slate-200 bg-white text-slate-900"
+                                ? "bg-indigo-600 text-white rounded-br-none"
+                                : "bg-white border border-slate-100 text-slate-800 rounded-bl-none"
                             }`}
                           >
-                            <p className="text-sm leading-relaxed">
-                              {msg.content}
-                            </p>
-                            <p
-                              className={`text-xs mt-1.5 flex items-center gap-1 ${
-                                mine ? "text-slate-300" : "text-slate-500"
-                              }`}
-                            >
-                              {formatTime(msg.createdAt)}
-                              {mine && <CheckCheck className="h-3 w-3" />}
-                            </p>
+                            {msg.content}
+                          </div>
+                          <div
+                            className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${mine ? "justify-end text-slate-400" : "text-slate-400"}`}
+                          >
+                            {formatTime(msg.createdAt)}
+                            {mine && (
+                              <CheckCheck
+                                size={14}
+                                className="text-emerald-500"
+                              />
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })
                 ) : (
-                  <Card className="border-slate-200">
-                    <CardContent className="p-6 text-sm text-slate-500">
-                      No messages yet in this conversation.
-                    </CardContent>
-                  </Card>
+                  <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-4 opacity-50">
+                    <MessageSquare size={64} />
+                    <p className="font-bold uppercase tracking-[0.2em] text-xs">
+                      No messages yet
+                    </p>
+                  </div>
                 )}
               </div>
 
-              <footer className="border-t border-slate-200 bg-white p-3">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Textarea
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                      className="min-h-[54px] max-h-40 resize-y border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
+              {/* Input Footer */}
+              <footer className="p-6 pt-2">
+                <div className="bg-slate-50 rounded-[2rem] p-2 flex items-end gap-2 border border-slate-100 focus-within:border-indigo-200 transition-colors">
+                  <Textarea
+                    placeholder="Write a message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    className="min-h-[50px] max-h-32 border-none bg-transparent focus-visible:ring-0 text-slate-800 placeholder:text-slate-400 py-3 px-4 resize-none"
+                  />
                   <Button
                     onClick={sendMessage}
                     disabled={!newMessage.trim() || sending}
-                    className="bg-slate-900 text-white hover:bg-slate-800"
+                    className="h-12 w-12 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 shrink-0 mb-1 mr-1"
                   >
-                    <Send className="h-4 w-4" />
+                    {sending ? (
+                      <Loader2 className="animate-spin" size={20} />
+                    ) : (
+                      <Send size={20} />
+                    )}
                   </Button>
                 </div>
               </footer>
             </>
           ) : (
-            <div className="grid flex-1 place-items-center bg-slate-50/40">
-              <Card className="w-full max-w-md border-slate-200 shadow-sm">
-                <CardContent className="p-6 text-center">
-                  <p className="font-medium text-slate-900">
-                    No conversation selected
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Open a job conversation to start messaging providers.
-                  </p>
-                </CardContent>
-              </Card>
+            <div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50/10">
+              <div className="bg-white p-12 rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-100 text-center max-w-sm">
+                <div className="h-20 w-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                  <MessageSquare size={32} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">
+                  Your Inbox
+                </h3>
+                <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                  Select a conversation from the sidebar to view project updates
+                  and chat with professionals.
+                </p>
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-slate-200 font-bold text-slate-600"
+                  asChild
+                >
+                  <Link href="/client/jobs">Manage Projects</Link>
+                </Button>
+              </div>
             </div>
           )}
-        </section>
+        </main>
       </div>
     </div>
   );
@@ -450,7 +443,9 @@ export default function ClientMessagesPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 text-sm text-slate-500">Loading messages...</div>
+        <div className="h-screen w-full flex items-center justify-center">
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
+        </div>
       }
     >
       <ClientMessagesContent />

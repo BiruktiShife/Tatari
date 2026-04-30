@@ -1,8 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Menu, X, MessageSquare, Star, Briefcase } from "lucide-react";
+import {
+  Bell,
+  Menu,
+  X,
+  Zap,
+  Settings,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,378 +20,129 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSidebar } from "@/hooks/use-sidebar";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   userName: string;
   userType: "client" | "provider" | "admin";
 }
 
-type NotificationCounts = {
-  messages: number;
-  reviews: number;
-  jobs: number;
-};
-
-type NotificationItem = {
-  key: string;
-  title: string;
-  description: string;
-  href: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-};
-
-function resolveApiUrl(path: string) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-
-  return path;
-}
-
 export function Header({ userName, userType }: HeaderProps) {
   const router = useRouter();
   const { isMobileSidebarOpen, toggleMobileSidebar } = useSidebar();
-  const [counts, setCounts] = useState<NotificationCounts>({
-    messages: 0,
-    reviews: 0,
-    jobs: 0,
-  });
-  const [unseenCounts, setUnseenCounts] = useState<NotificationCounts>({
-    messages: 0,
-    reviews: 0,
-    jobs: 0,
-  });
-  const [lastSeenSnapshot, setLastSeenSnapshot] =
-    useState<NotificationCounts | null>(null);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleLogout = () => {
-    // clear any stored auth tokens or user info
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-      // add other clearance if needed
-    }
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     router.push("/login");
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadCounts = async () => {
-      try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        if (!token) return;
-        const res = await fetch(
-          resolveApiUrl("/notifications/sidebar-counts"),
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!isMounted) return;
-        const nextCounts: NotificationCounts = {
-          messages: Number(data?.messages || 0),
-          reviews: Number(data?.reviews || 0),
-          jobs: Number(data?.jobs || 0),
-        };
-        setCounts(nextCounts);
-        if (!lastSeenSnapshot) {
-          setUnseenCounts(nextCounts);
-        } else {
-          setUnseenCounts({
-            messages: Math.max(0, nextCounts.messages - lastSeenSnapshot.messages),
-            reviews: Math.max(0, nextCounts.reviews - lastSeenSnapshot.reviews),
-            jobs: Math.max(0, nextCounts.jobs - lastSeenSnapshot.jobs),
-          });
-        }
-      } catch {
-        // silent fail for header notifications
-      }
-    };
-
-    const refresh = () => loadCounts();
-    loadCounts();
-    const interval = setInterval(refresh, 30000);
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [lastSeenSnapshot]);
-
-  const notifications = useMemo<NotificationItem[]>(() => {
-    const items: NotificationItem[] = [];
-    if (userType === "client") {
-      if (unseenCounts.messages > 0) {
-        items.push({
-          key: "messages",
-          title: "New messages",
-          description: `${unseenCounts.messages} unread message${
-            unseenCounts.messages > 1 ? "s" : ""
-          } from providers`,
-          href: "/client/messages",
-          icon: MessageSquare,
-        });
-      }
-      if (unseenCounts.reviews > 0) {
-        items.push({
-          key: "reviews",
-          title: "Pending reviews",
-          description: `${unseenCounts.reviews} job${
-            unseenCounts.reviews > 1 ? "s" : ""
-          } awaiting your feedback`,
-          href: "/client/reviews",
-          icon: Star,
-        });
-      }
-    }
-    if (userType === "provider") {
-      if (unseenCounts.messages > 0) {
-        items.push({
-          key: "messages",
-          title: "New messages",
-          description: `${unseenCounts.messages} unread message${
-            unseenCounts.messages > 1 ? "s" : ""
-          } from clients`,
-          href: "/provider/messages",
-          icon: MessageSquare,
-        });
-      }
-      if (unseenCounts.reviews > 0) {
-        items.push({
-          key: "reviews",
-          title: "New reviews",
-          description: `${unseenCounts.reviews} review${
-            unseenCounts.reviews > 1 ? "s" : ""
-          } received recently`,
-          href: "/provider/reviews",
-          icon: Star,
-        });
-      }
-      if (unseenCounts.jobs > 0) {
-        items.push({
-          key: "jobs",
-          title: "New job postings",
-          description: `${unseenCounts.jobs} new job${
-            unseenCounts.jobs > 1 ? "s" : ""
-          } posted in the last 24 hours`,
-          href: "/provider/jobs",
-          icon: Briefcase,
-        });
-      }
-    }
-    if (userType === "admin") {
-      if (unseenCounts.jobs > 0) {
-        items.push({
-          key: "jobs",
-          title: "New job postings",
-          description: `${unseenCounts.jobs} new job${
-            unseenCounts.jobs > 1 ? "s" : ""
-          } created recently`,
-          href: "/admin/jobs",
-          icon: Briefcase,
-        });
-      }
-      if (unseenCounts.reviews > 0) {
-        items.push({
-          key: "reviews",
-          title: "New reviews",
-          description: `${unseenCounts.reviews} review${
-            unseenCounts.reviews > 1 ? "s" : ""
-          } submitted recently`,
-          href: "/admin/analytics",
-          icon: Star,
-        });
-      }
-    }
-    return items;
-  }, [unseenCounts, userType]);
-
-  const totalNotificationsRaw = useMemo(() => {
-    const safe = (value: number) => (Number.isFinite(value) ? value : 0);
-    if (userType === "client") {
-      return Math.max(
-        0,
-        safe(unseenCounts.messages) + safe(unseenCounts.reviews),
-      );
-    }
-    if (userType === "provider") {
-      return Math.max(
-        0,
-        safe(unseenCounts.messages) +
-          safe(unseenCounts.reviews) +
-          safe(unseenCounts.jobs),
-      );
-    }
-    if (userType === "admin") {
-      return Math.max(
-        0,
-        safe(unseenCounts.jobs) + safe(unseenCounts.reviews),
-      );
-    }
-    return 0;
-  }, [
-    unseenCounts.messages,
-    unseenCounts.reviews,
-    unseenCounts.jobs,
-    userType,
-  ]);
-
-  const totalNotifications = notifications.length
-    ? totalNotificationsRaw
-    : 0;
-
-  const handleNotificationClick = (item: NotificationItem) => {
-    if (item.key === "messages") {
-      setUnseenCounts((prev) => ({ ...prev, messages: 0 }));
-    }
-    if (item.key === "reviews") {
-      setUnseenCounts((prev) => ({ ...prev, reviews: 0 }));
-    }
-    if (item.key === "jobs") {
-      setUnseenCounts((prev) => ({ ...prev, jobs: 0 }));
-    }
-    router.push(item.href);
-  };
-
-  useEffect(() => {
-    if (!isNotificationsOpen) return;
-    if (totalNotifications === 0) return;
-    setLastSeenSnapshot(counts);
-    setUnseenCounts({ messages: 0, reviews: 0, jobs: 0 });
-  }, [counts, isNotificationsOpen, totalNotifications]);
-
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b bg-white">
-      <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        {/* Left section */}
+    <header
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 h-16 transition-all duration-300",
+        isScrolled
+          ? "bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm"
+          : "bg-white border-b border-slate-50",
+      )}
+    >
+      <div className="flex h-full items-center justify-between px-4 md:px-8">
+        {/* Left: Brand */}
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="md:hidden rounded-xl"
             onClick={toggleMobileSidebar}
           >
             {isMobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </Button>
 
-          <div className="hidden md:flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="font-bold text-white">TT</span>
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform">
+              <Zap size={20} className="text-white fill-white" />
             </div>
-            <span className="font-bold text-xl hidden lg:inline">Tatari</span>
-            <span className="font-bold text-xl lg:hidden">HSH</span>
-          </div>
+            <span className="text-xl font-black text-slate-900 tracking-tighter">
+              Tatari
+            </span>
+          </Link>
         </div>
 
-        {/* Right section */}
-        <div className="flex items-center gap-4">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-3">
           {/* Notifications */}
-          <DropdownMenu onOpenChange={setIsNotificationsOpen}>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell size={20} />
-                {totalNotifications > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                  >
-                    {totalNotifications}
-                  </Badge>
-                )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative rounded-xl hover:bg-slate-50 group"
+              >
+                <Bell
+                  size={20}
+                  className="text-slate-500 group-hover:text-indigo-600 transition-colors"
+                />
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {notifications.length ? (
-                notifications.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <DropdownMenuItem
-                      key={item.key}
-                      className="cursor-pointer"
-                      onSelect={() => handleNotificationClick(item)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-full bg-slate-100 p-2">
-                          <Icon size={16} className="text-slate-700" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{item.title}</p>
-                          <p className="text-sm text-gray-500">
-                            {item.description}
-                          </p>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  );
-                })
-              ) : (
-                <div className="px-3 py-6 text-center text-sm text-gray-500">
-                  No new notifications
-                </div>
-              )}
+            <DropdownMenuContent
+              align="end"
+              className="w-80 rounded-[1.5rem] p-2 border-slate-100 shadow-2xl"
+            >
+              <DropdownMenuLabel className="font-black text-slate-900 px-4 py-3">
+                Notifications
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-slate-50" />
+              <div className="py-8 text-center">
+                <p className="text-sm text-slate-400 font-medium italic">
+                  All caught up!
+                </p>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* User profile */}
+          {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={`/avatars/${userType}.png`} />
-                  <AvatarFallback>{getInitials(userName)}</AvatarFallback>
+              <Button
+                variant="ghost"
+                className="pl-1 pr-3 py-1 h-11 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all gap-3"
+              >
+                <Avatar className="h-8 w-8 rounded-xl shadow-sm border-2 border-white">
+                  <AvatarFallback className="bg-slate-900 text-white font-bold text-xs">
+                    {userName.charAt(0).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium">{userName}</p>
-                  <p className="text-xs text-gray-500 capitalize">
-                    {userType === "provider" ? "Service Provider" : userType}
+                  <p className="text-xs font-black text-slate-900 leading-none">
+                    {userName.split(" ")[0]}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    {userType}
                   </p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-
-              <DropdownMenuItem className="text-red-600" onClick={handleLogout}>
-                Logout
+            <DropdownMenuContent
+              align="end"
+              className="w-56 rounded-2xl p-2 border-slate-100 shadow-2xl"
+            >
+              <DropdownMenuSeparator className="bg-slate-50" />
+              <DropdownMenuItem
+                className="rounded-xl font-bold text-rose-600 gap-2 focus:bg-rose-50 focus:text-rose-600"
+                onClick={handleLogout}
+              >
+                <LogOut size={16} /> Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

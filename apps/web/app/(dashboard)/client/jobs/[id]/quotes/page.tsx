@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  ArrowRight,
+  Calendar,
+  DollarSign,
+  ShieldCheck,
+  Star,
+} from "lucide-react";
+import { Avatar } from "@radix-ui/react-avatar";
+import { AvatarFallback } from "@/components/ui/avatar";
 
 type QuoteItem = {
   id: string;
@@ -48,30 +57,15 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return "Recently";
-  return date.toLocaleDateString();
-}
-
 export default function ClientJobQuotesPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const jobId = params?.id;
   const { toast } = useToast();
 
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [quotes, setQuotes] = useState<QuoteItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const pendingQuotes = useMemo(
-    () => quotes.filter((q) => q.status === "PENDING"),
-    [quotes],
-  );
-  const acceptedQuote = useMemo(
-    () => quotes.find((q) => q.status === "ACCEPTED"),
-    [quotes],
-  );
+  const [, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchQuotes = async () => {
@@ -148,108 +142,100 @@ export default function ClientJobQuotesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Job Quotes</h1>
-        <p className="text-gray-600 mt-2">
-          Compare providers and accept the best offer.
+    <div className="max-w-4xl mx-auto space-y-10 pb-20">
+      <div className="space-y-2">
+        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
+          Review Proposals
+        </h1>
+        <p className="text-slate-500 text-lg">
+          Select the best professional for your project based on budget and
+          rating.
         </p>
       </div>
 
-      {loading ? (
-        <div className="text-sm text-gray-500">Loading quotes...</div>
-      ) : error ? (
-        <div className="text-sm text-red-600">{error}</div>
-      ) : quotes.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-600">
-            No quotes yet. Providers will respond soon.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {quotes.map((quote) => {
-            const providerName =
-              quote.provider?.businessName ||
-              quote.provider?.name ||
-              "Provider";
-            return (
-              <Card key={quote.id} className="border-slate-200">
-                <CardContent className="p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="grid gap-6">
+        {quotes.map((quote: any) => (
+          <Card
+            key={quote.id}
+            className="rounded-[2rem] border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group"
+          >
+            <CardContent className="p-0">
+              <div className="flex flex-col md:flex-row">
+                {/* Provider Info */}
+                <div className="p-8 md:w-[300px] bg-slate-50 flex flex-col items-center text-center border-r border-slate-100">
+                  <Avatar className="h-20 w-20 border-4 border-white shadow-xl mb-4">
+                    <AvatarFallback className="bg-indigo-600 text-white font-black text-xl">
+                      {quote.provider?.name?.charAt(0) || "P"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="font-bold text-slate-900 text-lg leading-tight mb-1">
+                    {quote.provider?.businessName || quote.provider?.name}
+                  </h3>
+                  <div className="flex items-center gap-1 text-amber-500 font-bold text-sm">
+                    <Star size={14} className="fill-amber-500" />
+                    <span>{quote.providerRating || "New"}</span>
+                    <span className="text-slate-400 font-medium">
+                      ({quote.providerReviews || 0})
+                    </span>
+                  </div>
+                  <Badge className="mt-4 bg-emerald-50 text-emerald-700 border-none rounded-full flex gap-1 px-3">
+                    <ShieldCheck size={12} /> Verified Pro
+                  </Badge>
+                </div>
+
+                {/* Quote Content */}
+                <div className="p-8 flex-1 flex flex-col justify-between">
+                  <div className="flex justify-between items-start mb-6">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold">{providerName}</h3>
-                        <Badge variant="outline">{quote.status}</Badge>
+                      <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
+                        Proposal Details
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {quote.providerRating != null
-                          ? `${quote.providerRating}★ (${quote.providerReviews ?? 0})`
-                          : "No reviews yet"}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Submitted {formatDate(quote.createdAt)}
+                      <p className="text-slate-600 italic leading-relaxed">
+                        {quote.description || "No specific comments provided."}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-gray-500">Quote</div>
-                      <div className="text-2xl font-semibold">
+                      <div className="text-sm font-bold text-slate-400">
+                        Total Quote
+                      </div>
+                      <div className="text-3xl font-black text-indigo-600">
                         ₵ {quote.amount}
                       </div>
                     </div>
                   </div>
 
-                  {(quote.description || quote.timeline || quote.materials || quote.warranty) && (
-                    <div className="mt-4 grid gap-2 text-sm text-gray-600">
-                      {quote.description && <div>{quote.description}</div>}
-                      {quote.timeline && (
-                        <div>
-                          <span className="font-medium">Timeline:</span>{" "}
-                          {quote.timeline}
-                        </div>
-                      )}
-                      {quote.materials && (
-                        <div>
-                          <span className="font-medium">Materials:</span>{" "}
-                          {quote.materials}
-                        </div>
-                      )}
-                      {quote.warranty && (
-                        <div>
-                          <span className="font-medium">Warranty:</span>{" "}
-                          {quote.warranty}
-                        </div>
-                      )}
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                    <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
+                      <Calendar size={14} /> Estimated:{" "}
+                      {quote.timeline || "TBD"}
                     </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {quote.status === "PENDING" && !acceptedQuote && (
-                      <Button onClick={() => handleAccept(quote.id)}>
-                        Accept Quote
-                      </Button>
-                    )}
-                    {quote.status === "ACCEPTED" && (
-                      <Badge className="bg-emerald-100 text-emerald-800">
-                        Accepted
-                      </Badge>
-                    )}
-                    {quote.status === "REJECTED" && (
-                      <Badge variant="secondary">Rejected</Badge>
-                    )}
+                    <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
+                      <DollarSign size={14} /> Warranty:{" "}
+                      {quote.warranty || "Standard"}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
-      {pendingQuotes.length > 0 && !acceptedQuote && (
-        <div className="text-sm text-gray-500">
-          Accepting a quote will assign the provider and close other offers.
-        </div>
-      )}
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1 h-12 bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold group-hover:scale-[1.02] transition-transform"
+                      onClick={() => handleAccept(quote.id)}
+                    >
+                      Accept This Offer{" "}
+                      <ArrowRight size={18} className="ml-2" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-12 rounded-xl border-slate-200 text-slate-500 font-bold"
+                    >
+                      Details
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

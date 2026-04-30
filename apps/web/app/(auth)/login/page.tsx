@@ -3,17 +3,21 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Zap,
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -26,14 +30,12 @@ function resolveApiUrl(path: string) {
       throw err;
     }
   }
-
   if (typeof window !== "undefined" && window.location) {
     const origin = window.location.origin;
     return origin.includes("localhost")
       ? `http://localhost:3003${path}`
       : `${origin}${path}`;
   }
-
   return path;
 }
 
@@ -43,256 +45,232 @@ function LoginContent() {
   const { toast } = useToast();
 
   const role = searchParams.get("role") || "client";
-
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    rememberMe: false,
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
-    if (!formData.email.trim()) {
-      nextErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      nextErrors.email = "Enter a valid email";
-    }
-    if (!formData.password) {
-      nextErrors.password = "Password is required";
-    }
+    if (!formData.email.trim()) nextErrors.email = "Email is required";
+    if (!formData.password) nextErrors.password = "Password is required";
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       return;
     }
 
     setIsLoading(true);
-
     try {
       const res = await fetch(resolveApiUrl("/auth/login"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+        body: JSON.stringify(formData),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
 
-      let data: {
-        message?: string;
-        accessToken?: string;
-        user?: { role?: string };
-      } | null = null;
-      let rawText = "";
-      try {
-        data = await res.json();
-      } catch {
-        rawText = await res.text().catch(() => "");
-      }
+      if (data.accessToken) localStorage.setItem("token", data.accessToken);
+      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-      if (!res.ok) {
-        const message =
-          typeof data?.message === "string"
-            ? data.message
-            : rawText || "Login failed";
-        if (res.status === 403) {
-          const fallback =
-            role === "provider"
-              ? "Please wait for approval."
-              : "Your account is awaiting approval. Please wait for an admin to approve you.";
-          toast({
-            title: "Approval pending",
-            description: message || fallback,
-            variant: "destructive",
-          });
-          return;
-        }
-        toast({
-          title: "Login failed",
-          description: message || "Invalid credentials",
-          variant: "destructive",
-        });
-        setErrors((prev) => ({ ...prev, form: message || "Login failed" }));
-        return;
-      }
-
-      // ✅ Save JWT if backend returns it (note: backend returns `accessToken`) (backend uses camelCase property)
-      if (data.accessToken) {
-        localStorage.setItem("token", data.accessToken);
-      }
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
-      // dev-only debug info
-      if (process.env.NODE_ENV !== "production") {
-        console.debug("login response", data);
-        const stored = localStorage.getItem("token");
-        toast({
-          title: "Debug",
-          description: `token ${stored ? "stored" : "missing"}`,
-        });
-      }
+      toast({ title: "Welcome back!", description: "Redirecting..." });
+      router.push(
+        data.user?.role === "ADMIN"
+          ? "/admin"
+          : data.user?.role === "PROVIDER"
+            ? "/provider"
+            : "/client",
+      );
+    } catch (err: any) {
       toast({
-        title: "Successfully logged in!",
-        description: "Redirecting to dashboard...",
-      });
-
-      const userRole = data.user?.role;
-
-      if (userRole === "ADMIN") {
-        router.push("/admin");
-      } else if (userRole === "PROVIDER") {
-        router.push("/provider");
-      } else {
-        router.push("/client");
-      }
-    } catch {
-      toast({
-        title: "Server error",
-        description: "Unable to connect to server.",
+        title: "Error",
+        description: err.message,
         variant: "destructive",
       });
-      setErrors((prev) => ({
-        ...prev,
-        form: "Unable to connect to server. Please try again.",
-      }));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <>
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>
-          Sign in to your {role === "client" ? "client" : "service provider"}{" "}
-          account
-        </CardDescription>
-      </CardHeader>
+    // Force the div to be full width and height, ignoring potential parent padding
+    <div className="fixed inset-0 flex w-screen h-screen bg-white overflow-hidden">
+      {/* LEFT SIDE: Brand/Visual (Hidden on small screens) */}
+      <div className="hidden md:flex md:w-1/2 lg:w-[60%] relative bg-slate-950 p-12 flex-col justify-between">
+        {/* Background Gradients */}
+        <div className="absolute inset-0">
+          <div className="absolute top-[-10%] left-[-10%] w-[80%] h-[80%] rounded-full bg-indigo-600/20 blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[100px]" />
+        </div>
 
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {errors.form && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {errors.form}
+        <div className="relative z-10">
+          <Link href="/" className="flex items-center gap-2 group w-fit">
+            <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Zap size={22} className="text-white fill-white" />
             </div>
-          )}
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email address</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                className="pl-10"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
+            <span className="text-2xl font-bold text-white tracking-tight">
+              Tatari
+            </span>
+          </Link>
+        </div>
+
+        <div className="relative z-10 max-w-lg">
+          <Badge className="bg-indigo-500/10 text-indigo-300 border-indigo-500/20 mb-6 px-4 py-1 text-xs rounded-full uppercase tracking-widest font-bold">
+            Platform for Pros
+          </Badge>
+          <h2 className="text-5xl lg:text-6xl font-bold text-white mb-8 leading-[1.1] tracking-tight">
+            The future of <span className="text-indigo-500">work</span> in
+            Ethiopia.
+          </h2>
+          <div className="space-y-5">
+            {[
+              "Verified skilled professionals",
+              "100% secure escrow payments",
+              "Real-time task tracking",
+            ].map((text, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 text-slate-300 text-lg"
+              >
+                <CheckCircle2 size={20} className="text-indigo-500" />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10 text-slate-500 text-sm">
+          © {new Date().getFullYear()} Tatari Inc.
+        </div>
+      </div>
+
+      {/* RIGHT SIDE: Form (Full width on mobile, half on desktop) */}
+      <div className="w-full md:w-1/2 lg:w-[40%] flex flex-col justify-center px-6 sm:px-12 lg:px-20 bg-white">
+        <div className="max-w-[420px] w-full mx-auto">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-8 group transition-colors"
+          >
+            <ArrowLeft
+              size={18}
+              className="group-hover:-translate-x-1 transition-transform"
+            />
+            <span className="text-sm font-semibold italic">Back to home</span>
+          </Link>
+
+          <div className="mb-10">
+            <h1 className="text-4xl font-extrabold text-slate-900 mb-2 tracking-tight">
+              Welcome back
+            </h1>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 text-lg">Logging in as</span>
+              <Badge className="bg-indigo-600 text-white border-none px-3 py-0.5 capitalize text-sm font-bold">
+                {role}
+              </Badge>
             </div>
-            {errors.email && (
-              <p className="text-sm text-red-600">{errors.email}</p>
-            )}
           </div>
 
-          {/* Password */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label className="text-slate-900 font-bold text-sm">
+                Email Address
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
+                <Input
+                  name="email"
+                  type="email"
+                  placeholder="name@mail.com"
+                  className="pl-12 h-14 bg-slate-50 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-slate-900 font-bold text-sm">
+                  Password
+                </Label>
+                <Link
+                  href="#"
+                  className="text-sm text-indigo-600 font-bold hover:underline"
+                >
+                  Forgot?
+                </Link>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
+                <Input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className="pl-12 pr-12 h-14 bg-slate-50 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600/20 transition-all"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xl shadow-indigo-100 text-lg transition-all"
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="animate-spin" /> : "Sign In"}
+            </Button>
+          </form>
+
+          <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+            <p className="text-center text-slate-600 text-sm">
+              Need to login as a {role === "client" ? "Provider" : "Client"}?{" "}
               <Link
-                href="/forgot-password"
-                className="text-sm text-blue-600 hover:underline"
+                href={`/login?role=${role === "client" ? "provider" : "client"}`}
+                className="text-indigo-600 font-bold hover:underline"
               >
-                Forgot password?
+                Switch Role
               </Link>
-            </div>
-
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
-                className="pl-10 pr-10"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowPassword(!showPassword)}
+            </p>
+            <p className="text-center text-slate-600 text-sm">
+              New to Tatari?{" "}
+              <Link
+                href={`/register?role=${role}`}
+                className="text-slate-900 font-bold hover:underline"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="text-sm text-red-600">{errors.password}</p>
-            )}
+                Create an account
+              </Link>
+            </p>
           </div>
-
-          {/* Submit */}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
-
-        {/* Switch role */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            Signing in as a {role}?{" "}
-            <Link
-              href={`/login?role=${role === "client" ? "provider" : "client"}`}
-              className="text-blue-600 hover:underline font-medium"
-            >
-              Switch to {role === "client" ? "Service Provider" : "Client"}
-            </Link>
-          </p>
         </div>
-
-        {/* Sign up */}
-        <div className="mt-6 pt-6 border-t">
-          <p className="text-center text-sm text-gray-600">
-            Don&apos;t have an account?{" "}
-            <Link
-              href={`/register?role=${role}`}
-              className="font-semibold text-blue-600 hover:underline"
-            >
-              Sign up now
-            </Link>
-          </p>
-        </div>
-      </CardContent>
-    </>
+      </div>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

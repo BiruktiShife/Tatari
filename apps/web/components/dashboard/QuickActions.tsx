@@ -1,90 +1,79 @@
-import React from "react";
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
   MessageSquare,
   Star,
-  MapPin,
-  FileText,
-  Settings,
+  DollarSign,
+  ArrowRight,
+  HelpCircle,
 } from "lucide-react";
+import Link from "next/link";
 
-export interface QuickAction {
-  title: string;
-  description: string;
-  href: string;
-  icon: "plus" | "message" | "star" | "map" | "file" | "settings";
-  variant: "default" | "outline" | "secondary";
-}
-
-interface QuickActionsProps {
-  actions: QuickAction[];
-}
-
+// 1. Ensure all icons used in the dashboard are mapped here
 const iconMap = {
   plus: Plus,
   message: MessageSquare,
   star: Star,
-  map: MapPin,
-  file: FileText,
-  settings: Settings,
+  dollar: DollarSign,
 };
 
-export function QuickActions({ actions }: QuickActionsProps) {
+interface Action {
+  title: string;
+  description: string;
+  href: string;
+  icon: keyof typeof iconMap;
+  variant: "default" | "outline";
+}
+
+export function QuickActions({ actions }: { actions: Action[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
-        <CardDescription>Common tasks you might want to do</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {actions.map((action) => {
-            const Icon = iconMap[action.icon];
+    <div className="space-y-4">
+      <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 ml-2">
+        Quick Actions
+      </h3>
+      <div className="grid gap-4">
+        {actions.map((action, i) => {
+          // 2. Add a fallback to HelpCircle if the icon name is missing/wrong
+          const Icon = iconMap[action.icon] || HelpCircle;
 
-            return (
-              <Button
-                key={action.title}
-                variant={action.variant}
-                className="w-full justify-start h-auto py-3 px-4"
-                asChild
+          return (
+            <Link href={action.href} key={i} className="block">
+              <div
+                className={`p-5 rounded-3xl border transition-all flex items-center justify-between group cursor-pointer
+                ${
+                  action.variant === "default"
+                    ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700"
+                    : "bg-white border-slate-100 text-slate-900 hover:border-indigo-200 hover:shadow-md"
+                }`}
               >
-                <Link href={action.href}>
-                  <div className="flex items-start gap-3 text-left">
-                    <div className="p-2 rounded-md bg-primary/10">
-                      <Icon size={18} className="text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">{action.title}</div>
-                      <div className="text-sm text-gray-600 opacity-80">
-                        {action.description}
-                      </div>
-                    </div>
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center 
+                    ${action.variant === "default" ? "bg-white/20" : "bg-slate-50 text-indigo-600"}`}
+                  >
+                    <Icon size={20} />
                   </div>
-                </Link>
-              </Button>
-            );
-          })}
-        </div>
-
-        {/* Additional helpful tips */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium text-sm mb-2">💡 Quick Tip</h4>
-          <p className="text-sm text-gray-600">
-            Be specific in your job descriptions to get better quotes from
-            providers. Include details like timeline, materials needed, and
-            specific requirements.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+                  <div>
+                    <h4 className="font-bold text-sm leading-tight">
+                      {action.title}
+                    </h4>
+                    <p
+                      className={`text-xs mt-0.5 ${action.variant === "default" ? "text-indigo-100" : "text-slate-400"}`}
+                    >
+                      {action.description}
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight
+                  size={18}
+                  className={`transition-transform group-hover:translate-x-1 ${action.variant === "default" ? "text-white/50" : "text-slate-300"}`}
+                />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }

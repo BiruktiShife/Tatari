@@ -1,18 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, DollarSign, User } from "lucide-react";
+import { MapPin, User, Zap, ChevronRight, Loader2, Target } from "lucide-react";
 import Link from "next/link";
 
+// Types
 type ApiJob = {
   id: string;
   title: string;
@@ -24,63 +18,36 @@ type ApiJob = {
   budgetMax?: number | null;
   timeline?: "URGENT" | "WITHIN_WEEK" | "FLEXIBLE";
   createdAt?: string;
-  client?: {
-    name?: string | null;
-  };
+  client?: { name?: string | null };
 };
 
+// API Helper
 function resolveJobsApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) {
-        return `${apiUrl.replace(/\/$/, "")}${path}`;
-      }
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-
-  return path;
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
 }
 
+// Logic Helpers
 function formatPostedAgo(createdAt?: string) {
   if (!createdAt) return "recently";
   const postedAt = new Date(createdAt).getTime();
-  if (Number.isNaN(postedAt)) return "recently";
-
-  const diffMs = Date.now() - postedAt;
-  const mins = Math.max(1, Math.floor(diffMs / 60000));
-  if (mins < 60) return `${mins} min ago`;
+  const mins = Math.max(1, Math.floor((Date.now() - postedAt) / 60000));
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function formatBudget(job: ApiJob) {
-  if (job.budgetType === "RANGE") {
-    const min = job.budgetMin ?? 0;
-    const max = job.budgetMax ?? 0;
-    return `$${min} - $${max}`;
-  }
-
-  if (job.budgetAmount != null) {
+  if (job.budgetType === "RANGE")
+    return `ETB ${job.budgetMin ?? 0} - ${job.budgetMax ?? 0}`;
+  if (job.budgetAmount != null)
     return job.budgetType === "HOURLY"
-      ? `$${job.budgetAmount}/hr`
-      : `$${job.budgetAmount}`;
-  }
-
-  return "Budget not specified";
+      ? `ETB ${job.budgetAmount}/hr`
+      : `ETB ${job.budgetAmount}`;
+  return "Variable";
 }
 
 export function AvailableJobs() {
@@ -91,140 +58,141 @@ export function AvailableJobs() {
   useEffect(() => {
     const fetchNearbyJobs = async () => {
       setLoading(true);
-      setError("");
-
       try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        const url = resolveJobsApiUrl("/jobs/provider/nearby");
-        const res = await fetch(url, {
+        const token = localStorage.getItem("token");
+        const res = await fetch(resolveJobsApiUrl("/jobs/provider/nearby"), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to fetch nearby jobs");
-        }
-
+        if (!res.ok) throw new Error("Could not fetch jobs");
         const data = await res.json();
         setJobs(Array.isArray(data) ? data : []);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Could not fetch jobs";
-        setError(message);
-        setJobs([]);
+      } catch (err: any) {
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     fetchNearbyJobs();
   }, []);
 
-  const alertCount = jobs.length;
-  const uiJobs = useMemo(
-    () =>
-      jobs.map((job) => ({
-        id: job.id,
-        title: job.title,
-        client: job.client?.name || "Client",
-        location: job.location || "Nearby area",
-        budget: formatBudget(job),
-        posted: formatPostedAgo(job.createdAt),
-        urgency:
-          job.timeline === "URGENT"
-            ? "high"
-            : job.timeline === "WITHIN_WEEK"
-              ? "medium"
-              : "low",
-        category: job.category || "General",
-      })),
-    [jobs],
-  );
-
   return (
-    <Card className="border-slate-200">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle>Available Jobs Near You</CardTitle>
-            <CardDescription>
-              Jobs matching your skills and service area
-            </CardDescription>
-          </div>
-          <Badge variant="outline" className="font-medium">
-            {alertCount} Open
-          </Badge>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between px-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            Marketplace Leads
+          </h2>
+          <p className="text-slate-500 text-sm font-medium">
+            Newest jobs in your service areas
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
+        <Badge className="bg-indigo-50 text-indigo-700 border-none rounded-full px-4 py-1 font-bold">
+          {jobs.length} Matching
+        </Badge>
+      </div>
+
+      <div className="space-y-4">
         {loading ? (
-          <div className="text-sm text-gray-500">Loading available jobs...</div>
-        ) : error ? (
-          <div className="text-sm text-red-600">
-            Could not load nearby jobs right now.
+          <div className="py-20 flex flex-col items-center justify-center gap-4 bg-white rounded-[2rem] border border-slate-100">
+            <Loader2 className="animate-spin text-indigo-600" size={32} />
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+              Scanning Marketplace...
+            </p>
           </div>
-        ) : uiJobs.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            No nearby jobs found yet for your service areas.
+        ) : error ? (
+          <div className="p-8 text-center bg-rose-50 rounded-[2rem] border border-rose-100 text-rose-600 font-medium">
+            {error}
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="py-20 text-center bg-white rounded-[2rem] border border-dashed border-slate-200">
+            <Target className="mx-auto text-slate-200 mb-4" size={48} />
+            <h3 className="text-lg font-bold text-slate-900">
+              No Nearby Leads
+            </h3>
+            <p className="text-slate-500 mt-1 max-w-[240px] mx-auto">
+              Try expanding your service area in profile settings.
+            </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {uiJobs.map((job) => (
-            <div
-              key={job.id}
-              className="p-4 border border-slate-200 rounded-xl hover:border-slate-300 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-slate-900">{job.title}</h3>
-                    {job.urgency === "high" && <Badge variant="destructive">Urgent</Badge>}
-                    {job.urgency === "medium" && (
-                      <Badge variant="outline" className="border-amber-300 text-amber-700">
-                        Within Week
+          <div className="grid gap-4">
+            {jobs.map((job) => {
+              const isUrgent = job.timeline === "URGENT";
+              return (
+                <div
+                  key={job.id}
+                  className={`group bg-white p-6 rounded-[2rem] border transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-xl hover:shadow-indigo-100/50 
+                        ${isUrgent ? "border-indigo-100 shadow-sm" : "border-slate-100"}`}
+                >
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      {isUrgent && (
+                        <Badge className="bg-rose-500 text-white border-none rounded-full px-3 animate-pulse">
+                          <Zap size={10} className="mr-1 fill-white" /> Urgent
+                        </Badge>
+                      )}
+                      <Badge
+                        variant="secondary"
+                        className="bg-slate-100 text-slate-600 border-none px-3 capitalize font-bold"
+                      >
+                        {job.category || "General"}
                       </Badge>
-                    )}
-                    <Badge variant="secondary">{job.category}</Badge>
+                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-1">
+                        Posted {formatPostedAgo(job.createdAt)}
+                      </span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-indigo-600 transition-colors mb-4">
+                      {job.title}
+                    </h3>
+
+                    <div className="flex flex-wrap items-center gap-6">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                        <div className="h-7 w-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                          <User size={14} />
+                        </div>
+                        {job.client?.name || "Verified Client"}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                        <MapPin size={16} className="text-indigo-600" />
+                        {job.location}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <User size={14} />
-                      <span>{job.client}</span>
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between gap-4 pt-6 md:pt-0 border-t md:border-t-0 border-slate-50">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-right mb-1">
+                        Budget
+                      </p>
+                      <p className="text-2xl font-black text-slate-900 leading-none">
+                        {formatBudget(job)}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <MapPin size={14} />
-                      <span>{job.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <DollarSign size={14} />
-                      <span>{job.budget}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock size={14} />
-                      <span>Posted {job.posted}</span>
-                    </div>
+                    <Button
+                      asChild
+                      className="bg-slate-900 hover:bg-indigo-600 text-white rounded-xl px-6 font-bold h-11 transition-all"
+                    >
+                      <Link href={`/provider/jobs/${job.id}`} className="gap-2">
+                        View Details <ChevronRight size={18} />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex flex-col gap-2 min-w-32">
-                  <Button size="sm" asChild>
-                    <Link href={`/provider/jobs/${job.id}`}>View Job</Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        <div className="mt-5 text-center">
-          <Button variant="outline" className="w-full" asChild>
-            <Link href="/provider/jobs">View All Available Jobs</Link>
+        <div className="pt-4 text-center">
+          <Button
+            variant="link"
+            className="text-indigo-600 font-black uppercase tracking-widest text-xs hover:no-underline"
+            asChild
+          >
+            <Link href="/provider/jobs">View Market Overview</Link>
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

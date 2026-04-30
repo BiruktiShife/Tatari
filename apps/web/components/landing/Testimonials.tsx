@@ -1,102 +1,102 @@
 "use client";
-
 import React from "react";
-import { Star, Quote } from "lucide-react";
+import { Star, Quote, CheckCircle, ArrowUpRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
-const testimonials = [
+const reviews = [
   {
     name: "Sarah M.",
-    role: "Homeowner, Bole",
+    role: "Homeowner in Bole",
     content:
-      "I needed a plumber urgently on a Sunday. Found Samuel through Habesha Skills Hub and he fixed the issue in 30 minutes. The platform made everything so easy!",
+      "I needed a plumber urgently on a Sunday. Found Samuel through Tatari and he fixed the leak in 30 minutes. The payment was secure and easy.",
+    service: "Plumbing",
     rating: 5,
     avatar: "SM",
-    service: "Plumbing Repair",
   },
   {
     name: "Michael T.",
-    role: "Restaurant Owner, Kazanchis",
+    role: "Restaurant Owner",
     content:
-      "Our AC broke during peak hours. Found a technician within 15 minutes who arrived in 30 minutes. Saved our business for the day!",
+      "Our AC broke during peak hours. The technician arrived within 20 minutes. Tatari literally saved our business for the day!",
+    service: "AC Repair",
     rating: 5,
     avatar: "MT",
-    service: "AC Repair",
   },
   {
-    name: "Liya K.",
-    role: "Small Business Owner",
+    name: "Dawit Abraham",
+    role: "Verified Professional",
     content:
-      "Found an amazing graphic designer for my startup logo. The escrow payment system gave me peace of mind. Will use again!",
+      "Since joining Tatari as an electrician, my monthly income has tripled. I don't have to worry about marketing; the clients come to me.",
+    service: "Electrician",
     rating: 5,
-    avatar: "LK",
-    service: "Graphic Design",
-  },
-  {
-    name: "Samuel E.",
-    role: "Service Provider",
-    content:
-      "As an electrician, this platform has tripled my monthly income. I get quality leads and get paid on time. Life-changing!",
-    rating: 5,
-    avatar: "SE",
-    service: "Electrical Services",
+    avatar: "DA",
+    isPro: true,
   },
 ];
 
 export default function Testimonials() {
   return (
-    <section id="testimonials" className="py-20 bg-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Trusted by Thousands
+    <section id="testimonials" className="py-24 bg-white overflow-hidden">
+      <div className="container mx-auto px-4">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-none mb-4 px-4 py-1 text-sm">
+            Success Stories
+          </Badge>
+          <h2 className="text-4xl font-extrabold text-slate-900 mb-6">
+            Trusted by the community
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            See what our clients and service providers are saying about their
-            experience
+          <p className="text-lg text-slate-600">
+            Join thousands of satisfied users who have transformed how they find
+            and provide services.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          {testimonials.slice(0, 2).map((testimonial) => (
+        <div className="grid md:grid-cols-3 gap-8 mb-16">
+          {reviews.map((review, i) => (
             <Card
-              key={testimonial.name}
-              className="border-2 hover:border-blue-200 transition-colors"
+              key={i}
+              className="border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative group"
             >
               <CardContent className="p-8">
-                <Quote className="text-blue-100 mb-6" size={32} />
-                <p className="text-lg text-gray-700 mb-6 italic">
-                  &quot;{testimonial.content}&quot;
+                <Quote
+                  className="absolute top-6 right-8 text-slate-100 group-hover:text-indigo-50 transition-colors"
+                  size={40}
+                />
+
+                <div className="flex gap-1 mb-4">
+                  {[...Array(review.rating)].map((_, i) => (
+                    <Star
+                      key={i}
+                      size={16}
+                      className="fill-amber-400 text-amber-400"
+                    />
+                  ))}
+                </div>
+
+                <p className="text-slate-700 leading-relaxed mb-8 relative z-10 italic">
+                  "{review.content}"
                 </p>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Avatar>
-                      <AvatarFallback className="bg-blue-100 text-blue-600">
-                        {testimonial.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-semibold">{testimonial.name}</div>
-                      <div className="text-sm text-gray-500">
-                        {testimonial.role}
-                      </div>
-                      <div className="text-xs text-blue-600 font-medium">
-                        {testimonial.service}
-                      </div>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12 border-2 border-white shadow-md">
+                    <AvatarFallback className="bg-indigo-600 text-white font-bold">
+                      {review.avatar}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-slate-900">
+                        {review.name}
+                      </span>
+                      {review.isPro && (
+                        <CheckCircle size={14} className="text-indigo-600" />
+                      )}
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={16}
-                        className="text-yellow-500 fill-yellow-500"
-                      />
-                    ))}
+                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                      {review.role}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -104,40 +104,25 @@ export default function Testimonials() {
           ))}
         </div>
 
-        {/* Stats section */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        {/* Impact Stats Bar */}
+        <div className="bg-slate-900 rounded-[2rem] p-8 md:p-12 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 relative z-10 text-center">
             {[
-              { value: "10,000+", label: "Tasks Completed" },
-              { value: "98%", label: "Satisfaction Rate" },
-              { value: "15 min", label: "Avg. Response Time" },
-              { value: "₵ 2.5M+", label: "Paid to Providers" },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-3xl md:text-4xl font-bold mb-2">
+              { label: "Tasks Completed", value: "12,000+" },
+              { label: "Verified Pros", value: "850+" },
+              { label: "Avg. Response", value: "14m" },
+              { label: "Customer Rating", value: "4.9/5" },
+            ].map((stat, i) => (
+              <div key={i}>
+                <div className="text-3xl md:text-4xl font-extrabold mb-2 text-indigo-400">
                   {stat.value}
                 </div>
-                <div className="text-blue-100">{stat.label}</div>
+                <div className="text-slate-400 text-sm md:text-base font-medium">
+                  {stat.label}
+                </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center mt-16">
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">
-            Ready to get started?
-          </h3>
-          <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied clients and service providers today
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="px-8">
-              Find a Professional
-            </Button>
-            <Button size="lg" variant="outline">
-              Become a Provider
-            </Button>
           </div>
         </div>
       </div>

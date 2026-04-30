@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { CheckCircle2, Clock, Loader2, Send } from "lucide-react";
 
 type JobUpdate = {
   id: string;
@@ -36,12 +37,6 @@ function resolveApiUrl(path: string) {
   return path;
 }
 
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return "Recently";
-  return date.toLocaleString();
-}
-
 export default function ProviderJobUpdatesPage() {
   const params = useParams<{ id: string }>();
   const jobId = params?.id;
@@ -49,9 +44,9 @@ export default function ProviderJobUpdatesPage() {
 
   const [updates, setUpdates] = useState<JobUpdate[]>([]);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUpdates = async () => {
@@ -140,51 +135,72 @@ export default function ProviderJobUpdatesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Job Progress Updates</h1>
-        <p className="text-gray-600 mt-2">
-          Share milestones and keep the client informed.
+    <div className="max-w-3xl mx-auto space-y-10 pb-20 px-2">
+      <div className="space-y-2">
+        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
+          Project Log
+        </h1>
+        <p className="text-slate-500 text-lg">
+          Post live milestones to keep your client informed and ensure payout.
         </p>
       </div>
 
-      <Card className="border-slate-200">
-        <CardContent className="p-6 space-y-4">
+      {/* UPDATE FORM */}
+      <Card className="rounded-[2.5rem] border-slate-100 shadow-xl shadow-slate-200 overflow-hidden bg-white">
+        <CardContent className="p-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Clock size={18} />
+            </div>
+            <h3 className="font-bold text-slate-900">Post Milestone</h3>
+          </div>
           <Textarea
+            className="min-h-[120px] bg-slate-50 border-none rounded-3xl p-6 text-lg"
+            placeholder="What have you completed so far?"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Describe the progress, milestones, or issues..."
           />
-          <Button onClick={handlePost} disabled={submitting}>
-            {submitting ? "Posting..." : "Post Update"}
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              onClick={handlePost}
+              disabled={submitting}
+              className="h-12 px-10 bg-slate-900 hover:bg-indigo-600 rounded-xl font-bold gap-2"
+            >
+              {submitting ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <>
+                  <Send size={18} /> Log Update
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {loading ? (
-        <div className="text-sm text-gray-500">Loading updates...</div>
-      ) : error ? (
-        <div className="text-sm text-red-600">{error}</div>
-      ) : updates.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-600">
-            No updates yet. Post your first update above.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {updates.map((update) => (
-            <Card key={update.id} className="border-slate-200">
-              <CardContent className="p-5">
-                <div className="text-sm text-gray-500">
-                  {formatDate(update.createdAt)}
-                </div>
-                <p className="text-gray-800 mt-2">{update.message}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* TIMELINE */}
+      <div className="relative pl-10 space-y-8 before:absolute before:inset-0 before:left-[17px] before:w-px before:bg-slate-200 before:h-full">
+        {updates.map((update, i) => (
+          <div key={update.id} className="relative z-10 group">
+            <div
+              className={`absolute -left-[31px] h-9 w-9 rounded-full border-4 border-white shadow-md flex items-center justify-center 
+                            ${i === 0 ? "bg-indigo-600" : "bg-slate-300"}`}
+            >
+              <CheckCircle2 size={16} className="text-white" />
+            </div>
+            <div
+              className={`bg-white p-8 rounded-[2rem] border transition-all ${i === 0 ? "border-indigo-100 shadow-lg" : "border-slate-50 opacity-70"}`}
+            >
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                {new Date(update.createdAt).toLocaleString()}
+              </p>
+              <p className="text-lg text-slate-700 font-medium leading-relaxed italic">
+                {update.message}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

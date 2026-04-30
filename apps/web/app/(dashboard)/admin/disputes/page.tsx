@@ -1,16 +1,20 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useState } from "react";
 import {
   Search,
   Filter,
-  Shield,
-  AlertTriangle,
-  CheckCircle,
+  ShieldAlert,
+  CheckCircle2,
   Clock,
-  User,
   MoreVertical,
+  Gavel,
+  Scale,
+  History,
+  Target,
+  Loader2,
+  ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,14 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -48,226 +44,91 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
-type DisputeParty = {
-  id: string;
-  name: string;
-  type: string;
+// Config Mapping
+const statusConfig: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  open: { label: "Open Case", color: "text-amber-700", bg: "bg-amber-50" },
+  investigating: {
+    label: "In Review",
+    color: "text-violet-700",
+    bg: "bg-violet-50",
+  },
+  resolved: {
+    label: "Resolved",
+    color: "text-emerald-700",
+    bg: "bg-emerald-50",
+  },
+  escalated: { label: "Escalated", color: "text-rose-700", bg: "bg-rose-50" },
 };
 
-type DisputeJob = {
-  id: string;
-  title: string;
-};
-
-type DisputeItem = {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  description?: string | null;
-  resolution?: string | null;
-  createdAt: string;
-  resolvedAt?: string | null;
-  job?: DisputeJob | null;
-  clientId?: string | null;
-  providerId?: string | null;
-  raisedBy?: DisputeParty | null;
-  against?: DisputeParty | null;
-};
-
-type DisputesResponse = {
-  disputes: DisputeItem[];
-  stats: {
-    active: number;
-    resolvedThisMonth: number;
-    avgResolutionDays: number;
-    resolutionRate: number;
-  };
-};
-
-const priorityColors: Record<string, string> = {
-  high: "border-rose-200 bg-rose-50 text-rose-700",
-  medium: "border-amber-200 bg-amber-50 text-amber-700",
-  low: "border-sky-200 bg-sky-50 text-sky-700",
-};
-
-const statusColors: Record<string, string> = {
-  open: "border-amber-200 bg-amber-50 text-amber-700",
-  investigating: "border-violet-200 bg-violet-50 text-violet-700",
-  resolved: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  escalated: "border-rose-200 bg-rose-50 text-rose-700",
+const priorityConfig: Record<string, { label: string; color: string }> = {
+  high: { label: "Urgent", color: "bg-rose-500 text-white" },
+  medium: { label: "Standard", color: "bg-amber-100 text-amber-700" },
+  low: { label: "Low", color: "bg-slate-100 text-slate-500" },
 };
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-  return path;
-}
-
-function formatPostedAgo(dateStr?: string | null) {
-  if (!dateStr) return "—";
-  const postedAt = new Date(dateStr).getTime();
-  if (Number.isNaN(postedAt)) return "—";
-
-  const mins = Math.max(1, Math.floor((Date.now() - postedAt) / 60000));
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
-}
-
-function formatDate(dateStr?: string | null) {
-  if (!dateStr) return "—";
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString();
-}
-
-function formatStatus(status: string) {
-  const key = status.toUpperCase();
-  if (key === "OPEN") return "Open";
-  if (key === "INVESTIGATING") return "Investigating";
-  if (key === "RESOLVED") return "Resolved";
-  if (key === "ESCALATED") return "Escalated";
-  return key.charAt(0) + key.slice(1).toLowerCase();
-}
-
-function formatUserType(type?: string) {
-  if (!type) return "User";
-  if (type === "CLIENT") return "Client";
-  if (type === "PROVIDER") return "Provider";
-  if (type === "ADMIN") return "Admin";
-  return type.charAt(0) + type.slice(1).toLowerCase();
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
 }
 
 export default function AdminDisputesPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
-  const [detailDispute, setDetailDispute] = useState<DisputeItem | null>(null);
-  const [resolveDispute, setResolveDispute] = useState<DisputeItem | null>(
-    null,
-  );
+  const [disputes, setDisputes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [resolveDispute, setResolveDispute] = useState<any | null>(null);
   const [resolutionText, setResolutionText] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [stats, setStats] = useState<DisputesResponse["stats"]>({
+  const [stats, setStats] = useState({
     active: 0,
     resolvedThisMonth: 0,
     avgResolutionDays: 0,
     resolutionRate: 0,
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+
+  const fetchDisputes = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const query = new URLSearchParams();
+      if (searchQuery) query.set("search", searchQuery);
+      if (statusFilter !== "all") query.set("status", statusFilter);
+
+      const res = await fetch(
+        resolveApiUrl(`/admin/users/disputes?${query.toString()}`),
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setDisputes(data.disputes || []);
+        setStats(data.stats || stats);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timeout = setTimeout(async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        if (!token) {
-          setDisputes([]);
-          setError("Missing admin token. Please log in again.");
-          return;
-        }
-
-        const query = new URLSearchParams();
-        if (searchQuery.trim()) query.set("search", searchQuery.trim());
-        if (statusFilter !== "all") query.set("status", statusFilter);
-
-        const res = await fetch(
-          resolveApiUrl(`/admin/users/disputes?${query.toString()}`),
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to load disputes.");
-        }
-
-        const data: DisputesResponse = await res.json();
-        setDisputes(Array.isArray(data.disputes) ? data.disputes : []);
-        setStats(
-          data.stats || {
-            active: 0,
-            resolvedThisMonth: 0,
-            avgResolutionDays: 0,
-            resolutionRate: 0,
-          },
-        );
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load disputes.",
-        );
-        setDisputes([]);
-        setStats({
-          active: 0,
-          resolvedThisMonth: 0,
-          avgResolutionDays: 0,
-          resolutionRate: 0,
-        });
-      } finally {
-        setLoading(false);
-      }
-    }, 250);
-
-    return () => clearTimeout(timeout);
-  }, [searchQuery, statusFilter, refreshKey]);
-
-  const filteredDisputes = useMemo(() => {
-    if (priorityFilter === "all") return disputes;
-    return disputes.filter((d) => d.priority === priorityFilter);
-  }, [disputes, priorityFilter]);
-
-  const openDisputes = useMemo(
-    () => filteredDisputes.filter((d) => d.status !== "RESOLVED"),
-    [filteredDisputes],
-  );
-  const resolvedDisputes = useMemo(
-    () => filteredDisputes.filter((d) => d.status === "RESOLVED"),
-    [filteredDisputes],
-  );
+    const timer = setTimeout(fetchDisputes, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, statusFilter]);
 
   const handleResolve = async () => {
-    if (!resolveDispute) return;
-    if (!resolutionText.trim()) {
-      toast({
-        title: "Resolution required",
-        description: "Provide a resolution note before closing the dispute.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!resolveDispute || !resolutionText.trim()) return;
     try {
-      setActionLoading(true);
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) throw new Error("Missing admin token. Please log in again.");
-
+      const token = localStorage.getItem("token");
       const res = await fetch(
         resolveApiUrl(`/admin/users/disputes/${resolveDispute.id}/resolve`),
         {
@@ -279,545 +140,309 @@ export default function AdminDisputesPage() {
           body: JSON.stringify({ resolution: resolutionText.trim() }),
         },
       );
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to resolve dispute.");
+      if (res.ok) {
+        toast({
+          title: "Case Closed",
+          description: "Dispute has been successfully resolved.",
+        });
+        setResolveDispute(null);
+        setResolutionText("");
+        fetchDisputes();
       }
-
-      toast({ title: "Dispute resolved" });
-      setResolveDispute(null);
-      setResolutionText("");
-      setRefreshKey((prev) => prev + 1);
-    } catch (err) {
-      toast({
-        title: "Resolve failed",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleEscalate = async (dispute: DisputeItem) => {
-    try {
-      setActionLoading(true);
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) throw new Error("Missing admin token. Please log in again.");
-
-      const res = await fetch(
-        resolveApiUrl(`/admin/users/disputes/${dispute.id}/escalate`),
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to escalate dispute.");
-      }
-
-      toast({ title: "Dispute escalated" });
-      setRefreshKey((prev) => prev + 1);
-    } catch (err) {
-      toast({
-        title: "Escalation failed",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(false);
+    } catch (e) {
+      toast({ title: "Error", variant: "destructive" });
     }
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-              Dispute resolution
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Disputes Management
-            </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Review and resolve platform disputes in a cleaner, more readable view.
-            </p>
-          </div>
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-20 px-2">
+      {/* 1. Header Banner */}
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 p-8 md:p-12 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-500/10 blur-[100px] z-0" />
+        <div className="relative z-10 space-y-4">
+          <Badge className="bg-rose-500/20 text-rose-300 border-none px-4 py-1 font-bold text-[10px] uppercase tracking-widest">
+            Resolution Hub
+          </Badge>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white">
+            Dispute Mediation
+          </h1>
+          <p className="text-slate-400 text-lg max-w-xl">
+            Audit platform conflicts, review evidence, and issue final verdicts
+            on escrow releases.
+          </p>
         </div>
       </section>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      {/* 2. Intelligence Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          {
+            label: "Active Tickets",
+            val: stats.active,
+            icon: Gavel,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
+          },
+          {
+            label: "Resolved (MTD)",
+            val: stats.resolvedThisMonth,
+            icon: CheckCircle2,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+          },
+          {
+            label: "Avg. Cycle Time",
+            val: `${stats.avgResolutionDays} Days`,
+            icon: Clock,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
+          },
+          {
+            label: "Resolution Rate",
+            val: `${stats.resolutionRate}%`,
+            icon: Target,
+            color: "text-violet-600",
+            bg: "bg-violet-50",
+          },
+        ].map((stat, i) => (
+          <Card
+            key={i}
+            className="border-none shadow-sm rounded-[2rem] bg-white group hover:shadow-md transition-all"
+          >
+            <CardContent className="p-7 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  {stat.label}
+                </p>
+                <h3 className="text-3xl font-black text-slate-900 leading-none">
+                  {stat.val}
+                </h3>
+              </div>
+              <div
+                className={`h-12 w-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
+              >
+                <stat.icon size={22} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* 3. Global Filters */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="relative flex-1 group">
+          <Search
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"
+            size={20}
+          />
           <Input
-            placeholder="Search disputes by title, user, or job..."
-            className="border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400"
+            className="h-14 pl-12 bg-white border-none rounded-2xl shadow-sm text-base placeholder:text-slate-400"
+            placeholder="Find by Case ID, Project Title, or Participant Name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex gap-4">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Status" />
+            <SelectTrigger className="h-14 w-[180px] bg-white border-none rounded-2xl shadow-sm font-bold text-slate-600">
+              <Filter className="mr-2 text-slate-400" size={16} />
+              <SelectValue placeholder="All Status" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">Any Status</SelectItem>
+              <SelectItem value="open">Open Cases</SelectItem>
+              <SelectItem value="resolved">Closed Cases</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">{stats.active}</div>
-                <div className="text-sm text-slate-600">Active Disputes</div>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">
-                  {stats.resolvedThisMonth}
-                </div>
-                <div className="text-sm text-slate-600">Resolved This Month</div>
-              </div>
-              <CheckCircle className="h-8 w-8 text-emerald-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">
-                  {stats.avgResolutionDays}
-                </div>
-                <div className="text-sm text-slate-600">
-                  Avg. Resolution Time (days)
-                </div>
-              </div>
-              <Clock className="h-8 w-8 text-sky-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">
-                  {stats.resolutionRate}%
-                </div>
-                <div className="text-sm text-slate-600">Resolution Rate</div>
-              </div>
-              <Shield className="h-8 w-8 text-violet-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="open" className="w-full space-y-4">
-        <TabsList className="grid grid-cols-1 gap-2 bg-slate-100 p-1 sm:grid-cols-2">
-          <TabsTrigger value="open">
-            Open Disputes ({openDisputes.length})
+      {/* 4. Disputes Registry */}
+      <Tabs defaultValue="open" className="w-full space-y-6">
+        <TabsList className="bg-slate-100 p-1.5 rounded-2xl h-14 w-full max-w-md">
+          <TabsTrigger
+            value="open"
+            className="rounded-xl font-bold px-8 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            Queue
           </TabsTrigger>
-          <TabsTrigger value="resolved">
-            Resolved ({resolvedDisputes.length})
+          <TabsTrigger
+            value="resolved"
+            className="rounded-xl font-bold px-8 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            Archive
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="open">
-          <Card className="border-slate-200 shadow-sm">
+        <TabsContent value="open" className="outline-none animate-in fade-in">
+          <Card className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden">
             <div className="overflow-x-auto">
-              <Table className="min-w-[980px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Dispute Details</TableHead>
-                    <TableHead>Parties Involved</TableHead>
-                    <TableHead>Job</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Opened</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <th className="px-8 py-6 text-left">Conflict Context</th>
+                    <th className="px-8 py-6 text-left">
+                      Plaintiff vs. Defendant
+                    </th>
+                    <th className="px-8 py-6 text-left">Priority</th>
+                    <th className="px-8 py-6 text-left">Audit State</th>
+                    <th className="px-8 py-6 text-right">Mediation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
                   {loading ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-sm text-slate-500"
-                      >
-                        Loading disputes...
-                      </TableCell>
-                    </TableRow>
-                  ) : error ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-sm text-red-600"
-                      >
-                        {error}
-                      </TableCell>
-                    </TableRow>
-                  ) : openDisputes.length ? (
-                    openDisputes.map((dispute) => {
-                      const statusKey = dispute.status.toLowerCase();
+                    <tr>
+                      <td colSpan={5} className="py-20 text-center">
+                        <Loader2 className="animate-spin inline-block text-indigo-600" />
+                      </td>
+                    </tr>
+                  ) : (
+                    disputes.map((d) => {
+                      // 1. Get the keys
+                      const sKey = (d.status || "open").toLowerCase();
+                      const pKey = (d.priority || "low").toLowerCase();
+
+                      // 2. Perform lookup and CAST the result to the required shape
+                      // This tells TypeScript: "Status/Priority will DEFINITELY have these properties"
+                      const status = (statusConfig[sKey] ||
+                        statusConfig.open) as {
+                        label: string;
+                        color: string;
+                        bg: string;
+                      };
+                      const priority = (priorityConfig[pKey] ||
+                        priorityConfig.low) as { label: string; color: string };
+
+                      const displayId =
+                        typeof d.id === "string" ? d.id.slice(0, 8) : "...";
+
                       return (
-                        <TableRow key={dispute.id}>
-                          <TableCell>
-                            <div className="font-medium">{dispute.title}</div>
-                            <div className="text-sm text-slate-500">
-                              Case #{dispute.id}
+                        <tr
+                          key={d.id}
+                          className="hover:bg-slate-50/50 transition-colors group"
+                        >
+                          <td className="px-8 py-6">
+                            <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight mb-1">
+                              {d.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                              <History size={10} />{" "}
+                              {new Date(d.createdAt).toLocaleDateString()} • ID:{" "}
+                              {displayId}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <User size={14} className="text-slate-400" />
-                                <span className="text-sm">
-                                  {formatUserType(dispute.raisedBy?.type)}:{" "}
-                                  {dispute.raisedBy?.name || "—"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <User size={14} className="text-slate-400" />
-                                <span className="text-sm">
-                                  Against: {dispute.against?.name || "—"}
-                                </span>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {dispute.job?.title || "—"}
-                          </TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="px-8 py-6 text-xs">
+                            <p className="font-bold text-slate-900">
+                              {d.raisedBy?.name || "Unknown"}
+                            </p>
+                            <p className="text-slate-400 italic">
+                              Against: {d.against?.name || "—"}
+                            </p>
+                          </td>
+                          <td className="px-8 py-6">
+                            {/* TypeScript error should be gone now */}
                             <Badge
-                                className={`border ${priorityColors[dispute.priority] || priorityColors.low}`}
-                              >
-                              {dispute.priority.toUpperCase()}
+                              className={`border-none rounded-full px-3 py-0.5 font-bold text-[9px] uppercase tracking-tighter ${priority.color}`}
+                            >
+                              {priority.label}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="px-8 py-6">
+                            {/* TypeScript error should be gone now */}
                             <Badge
-                                className={`border ${statusColors[statusKey] || "border-slate-200 bg-slate-50 text-slate-700"}`}
-                              >
-                              {formatStatus(dispute.status)}
+                              className={`border-none rounded-full px-3 py-1 font-bold text-[10px] uppercase tracking-wider ${status.bg} ${status.color}`}
+                            >
+                              {status.label}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <Clock size={14} />
-                              {formatPostedAgo(dispute.createdAt)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <MoreVertical className="h-4 w-4" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => setDetailDispute(dispute)}
-                                  >
-                                    Review
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setResolveDispute(dispute);
-                                      setResolutionText(
-                                        dispute.resolution || "",
-                                      );
-                                    }}
-                                  >
-                                    Resolve
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleEscalate(dispute)}
-                                    disabled={actionLoading}
-                                  >
-                                    Escalate
-                                  </DropdownMenuItem>
-                                  {dispute.job?.id && (
-                                    <DropdownMenuItem asChild>
-                                      <Link
-                                        href={`/admin/jobs/${dispute.job.id}`}
-                                      >
-                                        View Job
-                                      </Link>
-                                    </DropdownMenuItem>
-                                  )}
-                                  {dispute.clientId && dispute.job?.id && (
-                                    <DropdownMenuItem asChild>
-                                      <Link
-                                        href={`/client/messages?job=${dispute.job.id}`}
-                                      >
-                                        Message Client
-                                      </Link>
-                                    </DropdownMenuItem>
-                                  )}
-                                  {dispute.providerId && dispute.job?.id && (
-                                    <DropdownMenuItem asChild>
-                                      <Link
-                                        href={`/provider/messages?job=${dispute.job.id}`}
-                                      >
-                                        Message Provider
-                                      </Link>
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-xl text-slate-300 hover:text-slate-900"
+                                >
+                                  <MoreVertical size={20} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="rounded-2xl p-2 shadow-2xl border-slate-100"
+                              >
+                                <DropdownMenuItem className="rounded-xl font-bold gap-2 text-slate-600">
+                                  <ExternalLink size={16} /> Audit Case
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="rounded-xl font-bold gap-2 text-emerald-600"
+                                  onClick={() => setResolveDispute(d)}
+                                >
+                                  <Scale size={16} /> Close & Settle
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="rounded-xl font-bold gap-2 text-indigo-600">
+                                  <MessageSquare size={16} /> Contact Parties
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
                       );
                     })
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-sm text-gray-500"
-                      >
-                        No open disputes found.
-                      </TableCell>
-                    </TableRow>
                   )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="resolved">
-          <Card className="border-slate-200 shadow-sm">
-            <div className="overflow-x-auto">
-              <Table className="min-w-[840px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Dispute Details</TableHead>
-                    <TableHead>Resolution</TableHead>
-                    <TableHead>Time to Resolve</TableHead>
-                    <TableHead>Outcome</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center text-sm text-slate-500"
-                      >
-                        Loading disputes...
-                      </TableCell>
-                    </TableRow>
-                  ) : error ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center text-sm text-red-600"
-                      >
-                        {error}
-                      </TableCell>
-                    </TableRow>
-                  ) : resolvedDisputes.length ? (
-                    resolvedDisputes.map((dispute) => (
-                      <TableRow key={dispute.id}>
-                        <TableCell>
-                          <div className="font-medium">{dispute.title}</div>
-                          <div className="text-sm text-slate-500">
-                            Case #{dispute.id}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {dispute.resolution || "Resolved"}
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <Clock size={14} />
-                            Opened: {formatDate(dispute.createdAt)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Resolved: {formatDate(dispute.resolvedAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Resolved
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="sm" variant="outline">
-                                Actions
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => setDetailDispute(dispute)}
-                              >
-                                Review
-                              </DropdownMenuItem>
-                              {dispute.job?.id && (
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/admin/jobs/${dispute.job.id}`}>
-                                    View Job
-                                  </Link>
-                                </DropdownMenuItem>
-                              )}
-                              {dispute.clientId && dispute.job?.id && (
-                                <DropdownMenuItem asChild>
-                                  <Link
-                                    href={`/client/messages?job=${dispute.job.id}`}
-                                  >
-                                    Message Client
-                                  </Link>
-                                </DropdownMenuItem>
-                              )}
-                              {dispute.providerId && dispute.job?.id && (
-                                <DropdownMenuItem asChild>
-                                  <Link
-                                    href={`/provider/messages?job=${dispute.job.id}`}
-                                  >
-                                    Message Provider
-                                  </Link>
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center text-sm text-slate-500"
-                      >
-                        No resolved disputes found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <Dialog
-        open={Boolean(detailDispute)}
-        onOpenChange={(open) => !open && setDetailDispute(null)}
-      >
-        <DialogContent className="border-slate-200 bg-white text-slate-900">
-          <DialogHeader>
-            <DialogTitle>Dispute Details</DialogTitle>
-            <DialogDescription>Case overview and context.</DialogDescription>
-          </DialogHeader>
-          {detailDispute && (
-            <div className="space-y-3 text-sm text-slate-700">
-              <div>
-                <span className="text-slate-500">Title:</span>{" "}
-                {detailDispute.title}
-              </div>
-              <div>
-                <span className="text-slate-500">Status:</span>{" "}
-                {formatStatus(detailDispute.status)}
-              </div>
-              <div>
-                <span className="text-slate-500">Priority:</span>{" "}
-                {detailDispute.priority.toUpperCase()}
-              </div>
-              <div>
-                <span className="text-slate-500">Job:</span>{" "}
-                {detailDispute.job?.title || "—"}
-              </div>
-              <div>
-                <span className="text-slate-500">Raised by:</span>{" "}
-                {detailDispute.raisedBy?.name || "—"} (
-                {formatUserType(detailDispute.raisedBy?.type)})
-              </div>
-              <div>
-                <span className="text-slate-500">Against:</span>{" "}
-                {detailDispute.against?.name || "—"}
-              </div>
-              <div>
-                <span className="text-slate-500">Opened:</span>{" "}
-                {formatDate(detailDispute.createdAt)}
-              </div>
-              <div>
-                <span className="text-slate-500">Resolved:</span>{" "}
-                {formatDate(detailDispute.resolvedAt)}
-              </div>
-              <div>
-                <span className="text-slate-500">Description:</span>{" "}
-                {detailDispute.description || "—"}
-              </div>
-              <div>
-                <span className="text-slate-500">Resolution:</span>{" "}
-                {detailDispute.resolution || "—"}
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setDetailDispute(null)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* 5. Resolution Dialog */}
       <Dialog
         open={Boolean(resolveDispute)}
-        onOpenChange={(open) => !open && setResolveDispute(null)}
+        onOpenChange={() => setResolveDispute(null)}
       >
-        <DialogContent className="border-slate-200 bg-white text-slate-900">
-          <DialogHeader>
-            <DialogTitle>Resolve Dispute</DialogTitle>
+        <DialogContent className="rounded-[2.5rem] p-10 max-w-2xl border-none">
+          <DialogHeader className="mb-6">
+            <div className="h-16 w-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-6">
+              <ShieldAlert size={32} />
+            </div>
+            <DialogTitle className="text-3xl font-black text-slate-900 tracking-tight">
+              Final Resolution
+            </DialogTitle>
             <DialogDescription>
-              Provide the resolution details before closing this case.
+              Issuing a final verdict on Case #
+              {typeof resolveDispute?.id === "string"
+                ? resolveDispute.id.slice(0, 8)
+                : "..."}
+              . This action is permanent.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+
+          <div className="space-y-4">
+            <Label className="font-bold text-xs uppercase tracking-widest text-slate-400 ml-1">
+              Resolution Summary
+            </Label>
             <Textarea
+              className="min-h-[150px] bg-slate-50 border-none rounded-[2rem] p-6 text-base"
+              placeholder="Provide reasoning for this outcome..."
               value={resolutionText}
               onChange={(e) => setResolutionText(e.target.value)}
-              rows={4}
-              placeholder="Resolution summary..."
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveDispute(null)}>
-              Cancel
+
+          <DialogFooter className="mt-8 flex gap-3">
+            <Button
+              variant="ghost"
+              className="rounded-xl font-bold px-8"
+              onClick={() => setResolveDispute(null)}
+            >
+              Discard
             </Button>
-            <Button onClick={handleResolve} disabled={actionLoading}>
-              {actionLoading ? "Saving..." : "Resolve"}
+            <Button
+              className="rounded-xl bg-slate-900 px-10 font-bold h-12 hover:bg-emerald-600 transition-colors"
+              onClick={handleResolve}
+            >
+              Commit Resolution
             </Button>
           </DialogFooter>
         </DialogContent>

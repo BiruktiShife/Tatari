@@ -3,19 +3,31 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  AlertTriangle,
-  BriefcaseBusiness,
+  Briefcase,
   FileText,
-  Shield,
+  ShieldAlert,
+  ArrowLeft,
+  Info,
+  Gavel,
+  Loader2,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 
+// Types
 type ClientJob = {
   id: string;
   title: string;
@@ -25,23 +37,9 @@ type ClientJob = {
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-  return path;
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
 }
 
 function ClientDisputeContent() {
@@ -65,32 +63,24 @@ function ClientDisputeContent() {
     const fetchJobs = async () => {
       setLoading(true);
       try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        if (!token) {
-          setJobs([]);
-          return;
-        }
+        const token = localStorage.getItem("token");
         const res = await fetch(resolveApiUrl("/jobs"), {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) {
-          setJobs([]);
-          return;
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          setJobs(
+            list.filter(
+              (job: ClientJob) =>
+                String(job.status || "").toUpperCase() === "COMPLETED",
+            ),
+          );
         }
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : [];
-        setJobs(
-          list.filter(
-            (job: ClientJob) =>
-              String(job.status || "").toUpperCase() === "COMPLETED",
-          ),
-        );
       } finally {
         setLoading(false);
       }
     };
-
     fetchJobs();
   }, []);
 
@@ -100,18 +90,10 @@ function ClientDisputeContent() {
   );
 
   const handleSubmit = async () => {
-    if (!jobId) {
-      toast({
-        title: "Select a job",
-        description: "Choose the job you want to dispute.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!title.trim() || !description.trim()) {
+    if (!jobId || !title.trim() || !description.trim()) {
       toast({
         title: "Missing details",
-        description: "Provide a title and description for the dispute.",
+        description: "Please complete all fields.",
         variant: "destructive",
       });
       return;
@@ -119,16 +101,7 @@ function ClientDisputeContent() {
 
     try {
       setSubmitting(true);
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) {
-        toast({
-          title: "Missing token",
-          description: "Please log in again.",
-          variant: "destructive",
-        });
-        return;
-      }
+      const token = localStorage.getItem("token");
       const res = await fetch(resolveApiUrl("/disputes"), {
         method: "POST",
         headers: {
@@ -141,19 +114,18 @@ function ClientDisputeContent() {
           description: description.trim(),
         }),
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to submit dispute.");
-      }
+
+      if (!res.ok) throw new Error("Failed to submit dispute.");
+
       toast({
         title: "Dispute submitted",
-        description: "Our support team will review your request.",
+        description: "Our resolution team will review this within 24 hours.",
       });
       router.push("/client/jobs");
-    } catch (err) {
+    } catch (err: any) {
       toast({
-        title: "Submission failed",
-        description: err instanceof Error ? err.message : "Please try again.",
+        title: "Error",
+        description: err.message,
         variant: "destructive",
       });
     } finally {
@@ -162,103 +134,195 @@ function ClientDisputeContent() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-              Support request
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Submit a Dispute
+    <div className="max-w-6xl mx-auto space-y-10 pb-20">
+      {/* 1. Header Section */}
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 p-8 md:p-12 text-white shadow-2xl shadow-slate-200">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-rose-500/10 blur-[100px]" />
+        <div className="relative z-10">
+          <div className="space-y-3">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+              Resolution Request
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Report an issue with a completed or active job.
+            <p className="text-slate-400 text-lg max-w-2xl">
+              If a project wasn't completed as agreed, our mediation team is
+              here to help you resolve the issue fairly.
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-          >
-            <Shield className="h-4 w-4 mr-2" />
-            Support Policy
-          </Button>
         </div>
       </section>
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-slate-900">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            Dispute Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label className="mb-2 block">Select Job</Label>
-            <Select value={jobId} onValueChange={setJobId}>
-              <SelectTrigger className="border-slate-300 bg-white text-slate-900">
-                <SelectValue
-                  placeholder={loading ? "Loading jobs..." : "Choose a job"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {jobs.map((job) => (
-                  <SelectItem key={job.id} value={job.id}>
-                    {job.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedJob && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="flex items-center gap-2 font-medium text-slate-900">
-                <BriefcaseBusiness className="h-4 w-4" />
-                {selectedJob.title}
+      <div className="grid lg:grid-cols-12 gap-10">
+        {/* 2. The Form Area */}
+        <div className="lg:col-span-7 space-y-8">
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 md:p-12 shadow-sm space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Gavel size={20} />
               </div>
-              <div className="mt-1">
-                Status: {selectedJob.status || "—"}
-              </div>
-              <div>Location: {selectedJob.location || "—"}</div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                Dispute Details
+              </h2>
             </div>
-          )}
 
-          <div>
-            <Label className="mb-2 block">Dispute Title</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Work not completed as agreed"
-              className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
-            />
+            <div className="space-y-6">
+              {/* Job Selection */}
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Select Project
+                </Label>
+                <Select value={jobId} onValueChange={setJobId}>
+                  <SelectTrigger className="h-14 bg-slate-50 border-none rounded-2xl text-slate-700">
+                    <SelectValue
+                      placeholder={
+                        loading ? "Loading history..." : "Choose the project..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    {jobs.map((job) => (
+                      <SelectItem key={job.id} value={job.id}>
+                        {job.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Selected Job Preview */}
+              {selectedJob && (
+                <div className="p-6 bg-indigo-50 rounded-[2rem] border border-indigo-100 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center text-indigo-600 shadow-sm">
+                      <Briefcase size={24} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900">
+                        {selectedJob.title}
+                      </h4>
+                      <div className="flex items-center gap-3 text-xs text-indigo-600 font-bold mt-1 uppercase tracking-tight">
+                        <div className="flex items-center gap-1">
+                          <MapPin size={12} /> {selectedJob.location}
+                        </div>
+                        <div className="flex items-center gap-1 font-black underline underline-offset-2">
+                          COMPLETED
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Dispute Title */}
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Dispute Reason
+                </Label>
+                <Input
+                  placeholder="e.g. Scope of work was not completed"
+                  className="h-14 bg-slate-50 border-none rounded-2xl text-lg focus:ring-rose-500/20"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-bold ml-1">
+                  Detailed Explanation
+                </Label>
+                <Textarea
+                  placeholder="Please explain what went wrong and what your desired outcome is (e.g. partial refund, rework)..."
+                  className="min-h-[200px] bg-slate-50 border-none rounded-[2rem] p-6 text-lg focus:ring-rose-500/20 resize-none"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-lg shadow-xl shadow-slate-200 transition-all active:scale-[0.98]"
+              >
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="animate-spin" size={20} /> Submitting...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <FileText size={20} /> Open Dispute File
+                  </span>
+                )}
+              </Button>
+            </div>
           </div>
+        </div>
 
-          <div>
-            <Label className="mb-2 block">Describe the Issue</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide dates, what went wrong, and expected resolution."
-              rows={5}
-              className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
-            />
+        {/* 3. Resolution Guide Sidebar */}
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="rounded-[2.5rem] border-none bg-indigo-600 p-8 text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
+            <div className="absolute top-[-10%] right-[-10%] w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+            <div className="relative z-10">
+              <div className="h-12 w-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                <ShieldAlert size={24} />
+              </div>
+              <h3 className="text-2xl font-bold mb-4">Resolution Process</h3>
+              <div className="space-y-6">
+                {[
+                  {
+                    step: "01",
+                    title: "Investigation",
+                    desc: "Our team reviews the job history, messages, and evidence.",
+                  },
+                  {
+                    step: "02",
+                    title: "Mediation",
+                    desc: "We speak with both you and the provider to find a fair solution.",
+                  },
+                  {
+                    step: "03",
+                    title: "Final Verdict",
+                    desc: "A decision is made on funds release or refund within 3-5 days.",
+                  },
+                ].map((s) => (
+                  <div key={s.step} className="flex gap-4">
+                    <div className="text-sm font-black opacity-40">
+                      {s.step}
+                    </div>
+                    <div>
+                      <h4 className="font-bold">{s.title}</h4>
+                      <p className="text-sm text-indigo-100 mt-1">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          {/* Support Notice */}
+          <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex items-start gap-4">
+            <Info className="text-slate-400 mt-1 shrink-0" size={20} />
+            <p className="text-sm text-slate-500 leading-relaxed font-medium">
+              Tatari maintains a{" "}
+              <span className="text-slate-900 font-bold">Safe-Pay Escrow</span>.
+              No funds are released to the provider until a dispute is resolved
+              or closed by the client.
+            </p>
           </div>
-
-          <Button onClick={handleSubmit} disabled={submitting} className="bg-slate-900 text-white hover:bg-slate-800">
-            <FileText className="h-4 w-4 mr-2" />
-            {submitting ? "Submitting..." : "Submit Dispute"}
-          </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function ClientDisputeNewPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-white">
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
+        </div>
+      }
+    >
       <ClientDisputeContent />
     </Suspense>
   );

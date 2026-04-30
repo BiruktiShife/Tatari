@@ -1,39 +1,34 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  Users2,
+  Loader2,
+  ChevronRight,
+  Gavel,
+  UserCheck,
+  TrendingUp,
+  Activity,
+  CheckCircle2,
+} from "lucide-react";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { JobLifecycleOverview } from "@/components/dashboard/JobLifecycleOverview";
-import {
-  ArrowRight,
-  BriefcaseBusiness,
-  Clock3,
-  ShieldCheck,
-  Sparkles,
-  TriangleAlert,
-  Users2,
-} from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// Types
 type SummaryResponse = {
   totalUsers: number;
   activeJobs: number;
   totalRevenue: number;
   disputeCases: number;
   pendingProviders: number;
-  jobLifecycle?: {
-    started: number;
-    inProgress: number;
-    completed: number;
-  };
+  jobLifecycle?: { started: number; inProgress: number; completed: number };
   recentPendingProviders: { id: string; name: string; createdAt: string }[];
   recentDisputes: {
     id: string;
@@ -43,48 +38,23 @@ type SummaryResponse = {
   }[];
 };
 
-type AdminJobsResponse = {
-  jobs: { status?: string }[];
-};
-
-type StatIcon = "briefcase" | "dollar" | "users" | "star";
-
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-
-  return path;
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
 }
 
 function formatRelative(dateStr: string) {
   const date = new Date(dateStr).getTime();
-  if (Number.isNaN(date)) return "Recently";
   const mins = Math.max(1, Math.floor((Date.now() - date) / 60000));
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days > 1 ? "s" : ""} ago`;
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
+  return `${Math.floor(mins / 1440)}d ago`;
 }
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -93,22 +63,18 @@ export default function AdminDashboardPage() {
     inProgress: number;
     completed: number;
   } | null>(null);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-
     if (!storedUser) {
       router.replace("/login");
       return;
     }
     const user = JSON.parse(storedUser);
-
     if (user.role !== "ADMIN") {
       router.replace(`/${user.role === "CLIENT" ? "client" : "provider"}`);
       return;
     }
-
     setAuthorized(true);
   }, [router]);
 
@@ -116,15 +82,8 @@ export default function AdminDashboardPage() {
     if (!authorized) return;
     const fetchSummary = async () => {
       setLoading(true);
-      setError("");
       try {
         const token = localStorage.getItem("token");
-        if (!token) {
-          setError("Missing admin token. Please log in again.");
-          setSummary(null);
-          setJobLifecycle(null);
-          return;
-        }
         const [summaryRes, jobsRes] = await Promise.all([
           fetch(resolveApiUrl("/admin/users/summary"), {
             headers: { Authorization: `Bearer ${token}` },
@@ -134,36 +93,25 @@ export default function AdminDashboardPage() {
           }),
         ]);
 
-        if (!summaryRes.ok) {
-          const text = await summaryRes.text();
-          throw new Error(text || "Failed to load summary.");
-        }
-        const data: SummaryResponse = await summaryRes.json();
-        setSummary(data);
-
+        if (summaryRes.ok) setSummary(await summaryRes.json());
         if (jobsRes.ok) {
-          const jobsData: AdminJobsResponse = await jobsRes.json();
+          const jobsData = await jobsRes.json();
           const jobs = Array.isArray(jobsData.jobs) ? jobsData.jobs : [];
-          const startedStatuses = new Set(["PENDING", "ACTIVE", "ACCEPTED"]);
-          const started = jobs.filter((job) =>
-            startedStatuses.has((job.status || "").toUpperCase()),
+          const started = jobs.filter((j: any) =>
+            ["PENDING", "ACTIVE", "ACCEPTED"].includes(
+              (j.status || "").toUpperCase(),
+            ),
           ).length;
           const inProgress = jobs.filter(
-            (job) => (job.status || "").toUpperCase() === "IN_PROGRESS",
+            (j: any) => (j.status || "").toUpperCase() === "IN_PROGRESS",
           ).length;
           const completed = jobs.filter(
-            (job) => (job.status || "").toUpperCase() === "COMPLETED",
+            (j: any) => (j.status || "").toUpperCase() === "COMPLETED",
           ).length;
           setJobLifecycle({ started, inProgress, completed });
-        } else {
-          setJobLifecycle(null);
         }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load summary.",
-        );
-        setSummary(null);
-        setJobLifecycle(null);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -171,302 +119,269 @@ export default function AdminDashboardPage() {
     fetchSummary();
   }, [authorized]);
 
-  const stats = useMemo((): {
-    title: string;
-    value: string;
-    change: string;
-    icon: StatIcon;
-  }[] => {
+  const stats = useMemo(() => {
     if (!summary) return [];
     return [
       {
-        title: "Total Users",
+        title: "Total Platform Users",
         value: String(summary.totalUsers),
-        change: `${summary.pendingProviders} pending providers`,
-        icon: "users",
+        change: `${summary.pendingProviders} pending approval`,
+        icon: "users" as const,
       },
       {
-        title: "Active Jobs",
+        title: "Marketplace Load",
         value: String(summary.activeJobs),
-        change: "Across all active statuses",
-        icon: "briefcase",
+        change: "Active projects live",
+        icon: "briefcase" as const,
       },
       {
-        title: "Platform Revenue",
-        value: `$${summary.totalRevenue}`,
-        change: "Revenue tracking not configured",
-        icon: "dollar",
+        title: "Gross Revenue",
+        value: `ETB ${summary.totalRevenue.toLocaleString()}`,
+        change: "System-wide tracking",
+        icon: "dollar" as const,
       },
       {
-        title: "Dispute Cases",
+        title: "Escalated Cases",
         value: String(summary.disputeCases),
-        change: "Open, investigating, escalated",
-        icon: "star",
+        change: "Open dispute tickets",
+        icon: "star" as const,
       },
     ];
   }, [summary]);
 
-  if (!authorized) {
-    return null;
+  if (!authorized) return null;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+        <p className="text-slate-500 font-bold italic tracking-widest text-xs uppercase">
+          Syncing Command Center...
+        </p>
+      </div>
+    );
   }
 
-  const heroStats = [
-    {
-      label: "Users",
-      value: summary ? summary.totalUsers : 0,
-      icon: Users2,
-      tone: "bg-sky-50 text-sky-700",
-    },
-    {
-      label: "Active jobs",
-      value: summary ? summary.activeJobs : 0,
-      icon: BriefcaseBusiness,
-      tone: "bg-indigo-50 text-indigo-700",
-    },
-    {
-      label: "Disputes",
-      value: summary ? summary.disputeCases : 0,
-      icon: TriangleAlert,
-      tone: "bg-amber-50 text-amber-700",
-    },
-    {
-      label: "Pending providers",
-      value: summary ? summary.pendingProviders : 0,
-      icon: ShieldCheck,
-      tone: "bg-emerald-50 text-emerald-700",
-    },
-  ];
-
-  const highlightCount = summary
-    ? summary.recentPendingProviders.length + summary.recentDisputes.length
-    : 0;
-
   return (
-    <div className="space-y-6 pb-6">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-lg shadow-slate-200/60 sm:px-8 lg:px-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_34%),radial-gradient(circle_at_bottom_left,_rgba(34,197,94,0.10),_transparent_28%),linear-gradient(135deg,_rgba(248,250,252,1),_rgba(255,255,255,1))]" />
-        <div className="absolute inset-x-0 top-0 h-px bg-slate-200" />
-        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)] lg:items-end">
-          <div className="space-y-5">
-            <div className="space-y-3">
-              <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
-                Platform Overview
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-                Monitor users, active jobs, disputes, and provider verification
-                from a cleaner, more focused dashboard experience.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                onClick={() => router.push("/admin/users")}
-                className="bg-slate-900 text-white hover:bg-slate-800"
-              >
-                Manage users
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push("/admin/jobs")}
-                className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-              >
-                Review jobs
-              </Button>
-            </div>
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-12 px-2">
+      {/* 1. Admin Header */}
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 p-8 md:p-12 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-indigo-600/10 blur-[100px] z-0" />
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+          <div className="space-y-3">
+            <Badge className="bg-indigo-500/20 text-indigo-300 border-none px-4 py-1 font-bold text-[10px] uppercase tracking-widest">
+              Global Control
+            </Badge>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+              Platform Overview
+            </h1>
+            <p className="text-slate-400 text-lg max-w-xl">
+              Real-time monitoring of users, marketplace execution, and dispute
+              resolution.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => router.push("/admin/users")}
+              size="lg"
+              className="bg-white text-slate-900 hover:bg-indigo-50 h-14 px-8 rounded-2xl font-bold shadow-xl"
+            >
+              User Control <ChevronRight size={20} className="ml-2" />
+            </Button>
           </div>
         </div>
       </section>
 
-      {loading ? (
-        <Card className="border-slate-200">
-          <CardContent className="flex items-center gap-3 py-8 text-sm text-slate-500">
-            <Clock3 className="h-4 w-4 animate-spin" />
-            Loading summary...
-          </CardContent>
-        </Card>
-      ) : error ? (
-        <Card className="border-red-200 bg-red-50/80">
-          <CardContent className="py-6 text-sm text-red-700">
-            {error}
-          </CardContent>
-        </Card>
-      ) : (
-        <StatsCards stats={stats} />
+      {/* 2. Platform Stats */}
+      <StatsCards stats={stats} />
+
+      {/* 3. Global Pipeline */}
+      {(summary?.jobLifecycle || jobLifecycle) && (
+        <JobLifecycleOverview
+          counts={summary?.jobLifecycle || jobLifecycle!}
+          title="Global Project Pipeline"
+          subtitle="Start, in-progress, and completed jobs across the entire marketplace."
+        />
       )}
 
-      {summary &&
-        !loading &&
-        !error &&
-        (summary.jobLifecycle || jobLifecycle) && (
-          <JobLifecycleOverview
-            counts={summary.jobLifecycle || jobLifecycle!}
-            title="Platform Job Lifecycle"
-            subtitle="Start, in-progress, and completed jobs across the marketplace."
-          />
-        )}
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-4">
-            <div>
-              <CardTitle className="text-lg">Pending verifications</CardTitle>
-              <CardDescription>
-                Providers waiting for review in the admin queue.
-              </CardDescription>
-            </div>
-            <Badge variant="secondary" className="rounded-full">
-              {summary?.recentPendingProviders?.length || 0}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* 4. Verification Queue */}
+        <div className="xl:col-span-7 space-y-6">
+          <div className="flex items-center justify-between px-4">
+            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <UserCheck className="text-indigo-600" size={22} /> Verification
+              Queue
+            </h3>
+            <Badge className="bg-slate-100 text-slate-600 border-none rounded-full px-4">
+              {summary?.recentPendingProviders?.length || 0} Waiting
             </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {summary?.recentPendingProviders?.length ? (
-                summary.recentPendingProviders.map((provider) => (
-                  <div
-                    key={provider.id}
-                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-medium text-slate-900">
+          </div>
+
+          <div className="space-y-4">
+            {summary?.recentPendingProviders?.length ? (
+              summary.recentPendingProviders.map((provider) => (
+                <Card
+                  key={provider.id}
+                  className="group rounded-[2rem] border-slate-100 bg-white hover:border-indigo-100 transition-all overflow-hidden shadow-sm hover:shadow-md"
+                >
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12 rounded-2xl bg-slate-50 border border-slate-100">
+                        <AvatarFallback className="bg-indigo-600 text-white font-bold">
+                          {provider.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                           {provider.name}
-                        </h3>
-                        <Badge
-                          variant="outline"
-                          className="rounded-full border-amber-200 bg-amber-50 text-amber-700"
-                        >
-                          Pending
-                        </Badge>
-                      </div>
-                      <div className="mt-1 text-sm text-slate-500">
-                        Service provider • {formatRelative(provider.createdAt)}
+                        </h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                          Submitted {formatRelative(provider.createdAt)}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-xl font-bold text-slate-400 hover:text-slate-600"
+                      >
                         Review
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => {
-                          router.push("/admin/users");
-                          toast({
-                            title: "Approve provider",
-                            description:
-                              "Use Users Management to approve providers.",
-                          });
-                        }}
+                        className="bg-slate-900 hover:bg-indigo-600 rounded-xl px-6 font-bold h-10 transition-all"
                       >
                         Approve
                       </Button>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-                  No pending providers right now.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="py-12 text-center bg-white rounded-[2rem] border border-dashed border-slate-200">
+                <CheckCircle2
+                  className="mx-auto text-emerald-400 mb-2"
+                  size={32}
+                />
+                <p className="text-slate-400 font-medium italic">
+                  Approval queue is clear.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-4">
-            <div>
-              <CardTitle className="text-lg">Recent disputes</CardTitle>
-              <CardDescription>
-                Track cases that need attention from the support team.
-              </CardDescription>
-            </div>
-            <Badge variant="secondary" className="rounded-full">
-              {summary?.recentDisputes?.length || 0}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {summary?.recentDisputes?.length ? (
-                summary.recentDisputes.map((dispute) => (
-                  <div
-                    key={dispute.id}
-                    className="rounded-2xl border border-slate-200 p-4 transition-shadow hover:shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium text-slate-900">
-                          {dispute.title}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                          <span>{formatRelative(dispute.createdAt)}</span>
-                          <span className="text-slate-300">•</span>
-                          <span>{dispute.status}</span>
-                        </div>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="rounded-full border-slate-200 bg-slate-50 text-slate-600"
-                      >
-                        Open
-                      </Badge>
-                    </div>
-                    <Button size="sm" variant="outline" className="mt-4">
-                      Resolve
+        {/* 5. Support Queue */}
+        <div className="xl:col-span-5 space-y-6">
+          <div className="flex items-center justify-between px-4">
+            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Gavel className="text-rose-600" size={22} /> Support Tickets
+            </h3>
+          </div>
+
+          <div className="space-y-4">
+            {summary?.recentDisputes?.length ? (
+              summary.recentDisputes.map((dispute) => (
+                <Card
+                  key={dispute.id}
+                  className="rounded-[2rem] border-slate-100 bg-white p-6 shadow-sm group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <Badge className="bg-rose-50 text-rose-600 border-none rounded-full px-3 py-1 font-bold text-[9px] uppercase tracking-widest">
+                      Active Dispute
+                    </Badge>
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                      {formatRelative(dispute.createdAt)}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 group-hover:text-rose-600 transition-colors leading-tight mb-4">
+                    {dispute.title}
+                  </h4>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+                      Status: {dispute.status}
+                    </span>
+                    <Button
+                      variant="link"
+                      className="text-indigo-600 font-bold p-0 h-auto"
+                    >
+                      Mediate Case <ChevronRight size={14} />
                     </Button>
                   </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
-                  No disputes found.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                </Card>
+              ))
+            ) : (
+              <div className="py-12 text-center bg-slate-50 rounded-[2rem] border border-slate-100">
+                <p className="text-slate-400 font-medium italic">
+                  No active disputes.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      <Card className="border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Admin shortcuts</CardTitle>
-          <CardDescription>
-            Fast paths to the main management areas.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-3">
+      {/* 6. Command Shortcuts */}
+      <div className="space-y-4 pt-4">
+        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 ml-4">
+          Command Center Shortcuts
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
               title: "Users",
-              description: "Review providers, approvals, and account activity.",
+              desc: "Verifications & Bans",
               href: "/admin/users",
-              tone: "text-sky-700 bg-sky-50 border-sky-200",
+              icon: Users2,
+              color: "text-sky-600",
+              bg: "bg-sky-50",
             },
             {
               title: "Jobs",
-              description: "Inspect job states and marketplace execution.",
+              desc: "Milestone Audits",
               href: "/admin/jobs",
-              tone: "text-indigo-700 bg-indigo-50 border-indigo-200",
+              icon: Activity,
+              color: "text-indigo-600",
+              bg: "bg-indigo-50",
             },
             {
-              title: "Transactions",
-              description: "Follow revenue flows and payment issues.",
+              title: "Finances",
+              desc: "Payouts & Flows",
               href: "/admin/transactions",
-              tone: "text-emerald-700 bg-emerald-50 border-emerald-200",
+              icon: TrendingUp,
+              color: "text-emerald-600",
+              bg: "bg-emerald-50",
             },
           ].map((item) => (
             <button
               key={item.title}
-              type="button"
               onClick={() => router.push(item.href)}
-              className={`group rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${item.tone}`}
+              className="bg-white p-7 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-100/30 transition-all text-left"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-semibold">{item.title}</div>
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <div className="flex items-center gap-4">
+                <div
+                  className={`h-14 w-14 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
+                >
+                  <item.icon size={28} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-lg">
+                    {item.title}
+                  </h4>
+                  <p className="text-xs text-slate-400 font-medium">
+                    {item.desc}
+                  </p>
+                </div>
               </div>
-              <div className="mt-2 text-sm opacity-80">{item.description}</div>
+              <ArrowRight
+                size={20}
+                className="text-slate-200 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all"
+              />
             </button>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

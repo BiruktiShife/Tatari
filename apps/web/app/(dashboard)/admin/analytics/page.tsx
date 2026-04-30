@@ -2,16 +2,20 @@
 
 import { useEffect, useState } from "react";
 import {
-  BarChart3,
   Users,
   Briefcase,
   DollarSign,
   Download,
   Calendar,
-  Filter,
+  Target,
+  PieChart as PieChartIcon,
+  Activity,
+  Loader2,
+  Star,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -34,25 +38,9 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { Badge } from "@/components/ui/badge";
 
-type RevenuePoint = {
-  label: string;
-  revenue: number;
-  jobs: number;
-};
-
-type CategoryPoint = {
-  name: string;
-  value: number;
-  color: string;
-};
-
-type UserGrowthPoint = {
-  label: string;
-  users: number;
-  providers: number;
-};
-
+// Types
 type AnalyticsResponse = {
   stats: {
     totalUsers: number;
@@ -63,407 +51,388 @@ type AnalyticsResponse = {
     reviewCount: number;
     retentionRate: number;
   };
-  revenueData: RevenuePoint[];
-  categoryData: CategoryPoint[];
-  userGrowthData: UserGrowthPoint[];
+  revenueData: any[];
+  categoryData: any[];
+  userGrowthData: any[];
 };
 
 function resolveApiUrl(path: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  if (apiUrl) {
-    try {
-      new URL(apiUrl);
-      return `${apiUrl.replace(/\/$/, "")}${path}`;
-    } catch (err) {
-      if (apiUrl.startsWith("/")) return `${apiUrl.replace(/\/$/, "")}${path}`;
-      throw err;
-    }
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const origin = window.location.origin;
-    return origin.includes("localhost")
-      ? `http://localhost:3003${path}`
-      : `${origin}${path}`;
-  }
-  return path;
+  if (apiUrl && !apiUrl.startsWith("http"))
+    return `${window.location.origin}${path}`;
+  return `${apiUrl.replace(/\/$/, "")}${path}`;
 }
 
 export default function AdminAnalyticsPage() {
   const [timeRange, setTimeRange] = useState("month");
   const [chartType, setChartType] = useState("revenue");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [stats, setStats] = useState<AnalyticsResponse["stats"]>({
-    totalUsers: 0,
-    activeJobs: 0,
-    platformRevenue: 0,
-    completionRate: 0,
-    avgRating: 0,
-    reviewCount: 0,
-    retentionRate: 0,
-  });
-  const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
-  const [categoryData, setCategoryData] = useState<CategoryPoint[]>([]);
-  const [userGrowthData, setUserGrowthData] = useState<UserGrowthPoint[]>([]);
+  const [, setError] = useState("");
+  const [data, setData] = useState<AnalyticsResponse | null>(null);
 
   useEffect(() => {
-    const timeout = setTimeout(async () => {
+    const fetchAnalytics = async () => {
       setLoading(true);
-      setError("");
       try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
-        if (!token) {
-          setError("Missing admin token. Please log in again.");
-          return;
-        }
-
+        const token = localStorage.getItem("token");
         const res = await fetch(
           resolveApiUrl(`/admin/users/analytics?range=${timeRange}`),
-          { headers: { Authorization: `Bearer ${token}` } },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
         );
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to load analytics.");
-        }
-
-        const data: AnalyticsResponse = await res.json();
-        setStats(data.stats);
-        setRevenueData(Array.isArray(data.revenueData) ? data.revenueData : []);
-        setCategoryData(Array.isArray(data.categoryData) ? data.categoryData : []);
-        setUserGrowthData(Array.isArray(data.userGrowthData) ? data.userGrowthData : []);
+        if (res.ok) setData(await res.json());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load analytics.");
+        setError("Failed to sync analytics engine.");
       } finally {
         setLoading(false);
       }
-    }, 200);
-
-    return () => clearTimeout(timeout);
+    };
+    fetchAnalytics();
   }, [timeRange]);
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">
+          Processing Platform Data...
+        </p>
+      </div>
+    );
+  }
+
+  const stats = data?.stats;
+
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex w-fit items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-              Performance insights
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Analytics Dashboard
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-20 px-2">
+      {/* 1. Header Banner */}
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 p-8 md:p-12 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-indigo-600/10 blur-[100px] z-0" />
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+          <div className="space-y-3">
+            <Badge className="bg-indigo-500/20 text-indigo-300 border-none px-4 py-1 font-bold text-[10px] uppercase tracking-widest">
+              Platform Intel
+            </Badge>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+              Marketplace Analytics
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Platform performance insights and metrics in a cleaner, higher-contrast layout.
+            <p className="text-slate-400 text-lg max-w-xl">
+              Deep-dive into platform liquidity, user acquisition trends, and
+              fulfillment performance.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row md:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             <Select value={timeRange} onValueChange={setTimeRange}>
-              <SelectTrigger className="w-full border-slate-300 bg-white text-slate-900 sm:w-[180px]">
-                <Calendar className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Time Range" />
+              <SelectTrigger className="h-14 w-full sm:w-[180px] bg-white/5 border-white/10 text-white rounded-2xl font-bold">
+                <Calendar className="mr-2 text-indigo-400" size={18} />
+                <SelectValue placeholder="Range" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Last Week</SelectItem>
-                <SelectItem value="month">Last Month</SelectItem>
-                <SelectItem value="quarter">Last Quarter</SelectItem>
-                <SelectItem value="year">Last Year</SelectItem>
+              <SelectContent className="rounded-2xl">
+                <SelectItem value="week">Last 7 Days</SelectItem>
+                <SelectItem value="month">Last 30 Days</SelectItem>
+                <SelectItem value="year">Fiscal Year</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              className="bg-slate-900 text-white hover:bg-slate-800"
-              onClick={() => {
-                const rows = [
-                  ["Metric", "Value"],
-                  ["Total Users", stats.totalUsers],
-                  ["Active Jobs", stats.activeJobs],
-                  ["Platform Revenue", stats.platformRevenue],
-                  ["Completion Rate (%)", stats.completionRate],
-                  ["Average Rating", stats.avgRating],
-                  ["Total Reviews", stats.reviewCount],
-                  ["Returning Clients (%)", stats.retentionRate],
-                ];
-
-                const section = (title: string, items: Record<string, number>) => [
-                  [title, ""],
-                  ["Label", "Value"],
-                  ...Object.entries(items).map(([label, value]) => [label, value]),
-                ];
-
-                const revenueSection = section(
-                  "Revenue & Jobs Overview",
-                  Object.fromEntries(
-                    revenueData.map((row) => [
-                      row.label,
-                      chartType === "revenue" ? row.revenue : row.jobs,
-                    ]),
-                  ),
-                );
-
-                const categoriesSection = [
-                  ["Jobs by Category", ""],
-                  ["Category", "Jobs"],
-                  ...categoryData.map((row) => [row.name, row.value]),
-                ];
-
-                const growthSection = [
-                  ["User Growth", ""],
-                  ["Label", "Users", "Providers"],
-                  ...userGrowthData.map((row) => [row.label, row.users, row.providers]),
-                ];
-
-                const csv = [
-                  ["Analytics Export", `Range: ${timeRange}`],
-                  [],
-                  ...rows,
-                  [],
-                  ...revenueSection,
-                  [],
-                  ...categoriesSection,
-                  [],
-                  ...growthSection,
-                ]
-                  .map((row) =>
-                    row
-                      .map((value) => {
-                        const str = value == null ? "" : String(value);
-                        return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-                      })
-                      .join(","),
-                  )
-                  .join("\n");
-
-                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                const date = new Date().toISOString().slice(0, 10);
-                link.download = `analytics-report-${timeRange}-${date}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export Report
+            <Button className="bg-white text-slate-950 hover:bg-indigo-50 h-14 px-8 rounded-2xl font-bold shadow-xl">
+              <Download size={18} className="mr-2" /> Export Dataset
             </Button>
           </div>
         </div>
       </section>
 
-      {loading && (
-        <Card className="border-slate-200">
-          <CardContent className="py-8 text-sm text-slate-500">
-            Loading analytics...
-          </CardContent>
-        </Card>
-      )}
-      {error && (
-        <Card className="border-red-200 bg-red-50/80">
-          <CardContent className="py-6 text-sm text-red-700">{error}</CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+      {/* 2. Key Performance Indicators */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          {
+            label: "Gross Revenue",
+            val: `ETB ${stats?.platformRevenue.toLocaleString()}`,
+            icon: DollarSign,
+            color: "text-emerald-500",
+            bg: "bg-emerald-50",
+          },
+          {
+            label: "Active Marketplace",
+            val: stats?.activeJobs,
+            icon: Briefcase,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
+          },
+          {
+            label: "Platform Users",
+            val: stats?.totalUsers,
+            icon: Users,
+            color: "text-blue-600",
+            bg: "bg-blue-50",
+          },
+          {
+            label: "Fulfillment Rate",
+            val: `${stats?.completionRate}%`,
+            icon: Target,
+            color: "text-amber-500",
+            bg: "bg-amber-50",
+          },
+        ].map((s, i) => (
+          <Card
+            key={i}
+            className="border-none shadow-sm rounded-[2rem] bg-white group hover:shadow-md transition-all"
+          >
+            <CardContent className="p-7 flex items-center justify-between">
               <div>
-                <div className="text-2xl font-semibold text-slate-900">{stats.totalUsers}</div>
-                <div className="text-sm text-slate-600">Total Users</div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                  {s.label}
+                </p>
+                <h3 className="text-2xl font-black text-slate-900 leading-none">
+                  {s.val}
+                </h3>
               </div>
-              <Users className="h-8 w-8 text-sky-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">{stats.activeJobs}</div>
-                <div className="text-sm text-slate-600">Active Jobs</div>
+              <div
+                className={`h-12 w-12 rounded-2xl ${s.bg} ${s.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
+              >
+                <s.icon size={22} />
               </div>
-              <Briefcase className="h-8 w-8 text-emerald-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">₵ {stats.platformRevenue}</div>
-                <div className="text-sm text-slate-600">Platform Revenue</div>
-              </div>
-              <DollarSign className="h-8 w-8 text-violet-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-semibold text-slate-900">{stats.completionRate}%</div>
-                <div className="text-sm text-slate-600">Completion Rate</div>
-              </div>
-              <BarChart3 className="h-8 w-8 text-amber-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-4">
-              <span className="text-slate-900">Revenue & Jobs Overview</span>
-              <Select value={chartType} onValueChange={setChartType}>
-                <SelectTrigger className="w-[140px] border-slate-300 bg-white text-slate-900">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Chart Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="revenue">Revenue</SelectItem>
-                  <SelectItem value="jobs">Jobs</SelectItem>
-                </SelectContent>
-              </Select>
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              Compare performance over the selected time range.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="label" tick={{ fill: "#475569" }} />
-                  <YAxis tick={{ fill: "#475569" }} />
-                  <Tooltip />
-                  <Legend />
-                  {chartType === "revenue" ? (
-                    <Bar dataKey="revenue" name="Revenue (₵)" fill="#0284c7" />
-                  ) : (
-                    <Bar dataKey="jobs" name="Jobs Count" fill="#059669" />
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
+      {/* 3. Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Revenue/Jobs Bar Chart */}
+        <Card className="lg:col-span-8 rounded-[2.5rem] border-none shadow-sm bg-white p-8 overflow-hidden">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">
+                Activity Distribution
+              </h3>
+              <p className="text-sm text-slate-400 font-medium">
+                Platform output over time
+              </p>
             </div>
-          </CardContent>
+            <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
+              <button
+                onClick={() => setChartType("revenue")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === "revenue" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"}`}
+              >
+                Revenue
+              </button>
+              <button
+                onClick={() => setChartType("jobs")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === "jobs" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"}`}
+              >
+                Jobs
+              </button>
+            </div>
+          </div>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data?.revenueData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#F1F5F9"
+                />
+                <XAxis
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94A3B8", fontSize: 12, fontWeight: 600 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94A3B8", fontSize: 12, fontWeight: 600 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "16px",
+                    border: "none",
+                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                  }}
+                  cursor={{ fill: "#F8FAFC" }}
+                />
+                <Bar
+                  dataKey={chartType === "revenue" ? "revenue" : "jobs"}
+                  radius={[6, 6, 0, 0]}
+                  fill="#4f46e5"
+                  barSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-slate-900">Jobs by Category</CardTitle>
-            <CardDescription className="text-slate-600">
-              Distribution of jobs across service categories.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => {
-                      const safePercent = typeof percent === "number" ? percent : 0;
-                      return `${name}: ${(safePercent * 100).toFixed(0)}%`;
+        {/* Category Pie Chart */}
+        <Card className="lg:col-span-4 rounded-[2.5rem] border-none shadow-sm bg-white p-8 flex flex-col">
+          <div className="mb-6 text-center lg:text-left">
+            <h3 className="text-xl font-bold text-slate-900">
+              Demand by Skill
+            </h3>
+            <p className="text-sm text-slate-400 font-medium">
+              Top performing categories
+            </p>
+          </div>
+          <div className="flex-1 min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data?.categoryData}
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={8}
+                  dataKey="value"
+                >
+                  {data?.categoryData.map((index: number) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        ["#4f46e5", "#10b981", "#f59e0b", "#ef4444"][index % 4]
+                      }
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-3 pt-6 border-t border-slate-50">
+            {data?.categoryData.slice(0, 3).map((cat: any, i: number) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{
+                      backgroundColor: ["#4f46e5", "#10b981", "#f59e0b"][i],
                     }}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
+                  />
+                  <span className="text-xs font-bold text-slate-600 capitalize">
+                    {cat.name}
+                  </span>
+                </div>
+                <span className="text-xs font-black text-slate-900">
+                  {cat.value} Jobs
+                </span>
+              </div>
+            ))}
+          </div>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-slate-900">
-              User Growth & Provider Registration
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              Track platform growth alongside provider onboarding.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={userGrowthData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="label" tick={{ fill: "#475569" }} />
-                  <YAxis tick={{ fill: "#475569" }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="users"
-                    name="Total Users"
-                    stroke="#0284c7"
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="providers"
-                    name="Service Providers"
-                    stroke="#059669"
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
+        {/* User Growth Line Chart */}
+        <Card className="lg:col-span-12 rounded-[2.5rem] border-none shadow-sm bg-white p-10 overflow-hidden">
+          <div className="mb-10">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              Growth Trajectory
+            </h3>
+            <p className="text-slate-400 font-medium">
+              New user acquisition vs. provider onboarding
+            </p>
+          </div>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data?.userGrowthData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#F1F5F9"
+                />
+                <XAxis
+                  dataKey="label"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94A3B8", fontSize: 12, fontWeight: 600 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94A3B8", fontSize: 12, fontWeight: 600 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "16px",
+                    border: "none",
+                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                  }}
+                />
+                <Legend iconType="circle" />
+                <Line
+                  type="monotone"
+                  dataKey="users"
+                  name="Total Clients"
+                  stroke="#4f46e5"
+                  strokeWidth={4}
+                  dot={{
+                    r: 4,
+                    fill: "#4f46e5",
+                    strokeWidth: 2,
+                    stroke: "#fff",
+                  }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="providers"
+                  name="Pros"
+                  stroke="#10b981"
+                  strokeWidth={4}
+                  dot={{
+                    r: 4,
+                    fill: "#10b981",
+                    strokeWidth: 2,
+                    stroke: "#fff",
+                  }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-slate-900">{stats.avgRating}</div>
-              <div className="text-sm text-slate-600">Average Rating</div>
-              <div className="mt-1 text-xs text-slate-500">
-                Based on {stats.reviewCount} reviews
-              </div>
+      {/* 4. Quantitative Performance snapshot */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          {
+            label: "Community Rating",
+            val: stats?.avgRating,
+            icon: Star,
+            color: "text-amber-500",
+            desc: `Based on ${stats?.reviewCount} reviews`,
+          },
+          {
+            label: "Market Retention",
+            val: `${stats?.retentionRate}%`,
+            icon: Activity,
+            color: "text-indigo-600",
+            desc: "Clients with 2+ projects",
+          },
+          {
+            label: "Audit Success",
+            val: `${stats?.completionRate}%`,
+            icon: CheckCircle2,
+            color: "text-emerald-500",
+            desc: "Job lifecycle success",
+          },
+        ].map((item, i) => (
+          <Card
+            key={i}
+            className="rounded-3xl border border-slate-100 bg-white p-8 text-center space-y-4 shadow-sm"
+          >
+            <div
+              className={`h-12 w-12 rounded-2xl bg-slate-50 ${item.color} flex items-center justify-center mx-auto`}
+            >
+              <item.icon size={24} />
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-slate-900">
-                {stats.retentionRate}%
-              </div>
-              <div className="text-sm text-slate-600">Returning Clients</div>
-              <div className="mt-1 text-xs text-slate-500">
-                Clients with more than one job
-              </div>
+            <div>
+              <h4 className="text-3xl font-black text-slate-900">{item.val}</h4>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                {item.label}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-slate-900">{stats.reviewCount}</div>
-              <div className="text-sm text-slate-600">Total Reviews</div>
-              <div className="mt-1 text-xs text-slate-500">
-                All time reviews submitted
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-slate-500 font-medium italic">
+              {item.desc}
+            </p>
+          </Card>
+        ))}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import Link from "next/link";
 import {
@@ -6,64 +7,62 @@ import {
   Instagram,
   Linkedin,
   Mail,
-  Phone,
   MapPin,
+  Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Company info */}
-          <div>
-            <div className="flex items-center gap-2 mb-6">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                <span className="font-bold text-white">HS</span>
+    <footer className="bg-slate-950 text-slate-300 border-t border-slate-900">
+      <div className="container mx-auto px-4 pt-16 pb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-16">
+          {/* Brand Column */}
+          <div className="lg:col-span-4">
+            <Link href="/" className="flex items-center space-x-2.5 mb-6 group">
+              <div className="h-10 w-10 rounded-lg bg-indigo-600 flex items-center justify-center transition-transform group-hover:scale-110">
+                <Zap className="text-white fill-white" size={20} />
               </div>
-              <div>
-                <div className="text-xl font-bold">Habesha Skills Hub</div>
-                <div className="text-sm text-gray-400">
-                  Connecting talent with opportunity
-                </div>
-              </div>
-            </div>
-            <p className="text-gray-400 mb-6">
-              Ethiopia&apos;s leading platform connecting skilled professionals with
-              clients who need their services.
+              <span className="text-2xl font-bold text-white tracking-tight">
+                Tatari
+              </span>
+            </Link>
+            <p className="text-slate-400 mb-8 leading-relaxed max-w-sm">
+              The most trusted marketplace for professional services. Connecting
+              skilled experts with people who need to get things done, securely
+              and efficiently.
             </p>
-            <div className="flex gap-4">
-              {[Facebook, Twitter, Instagram, Linkedin].map((Icon, index) => (
-                <Button
-                  key={index}
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-400 hover:text-white hover:bg-white/10"
+            <div className="flex gap-3">
+              {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
+                <Link
+                  key={i}
+                  href="#"
+                  className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all"
                 >
-                  <Icon size={20} />
-                </Button>
+                  <Icon size={18} />
+                </Link>
               ))}
             </div>
           </div>
 
           {/* Quick Links */}
-          <div>
-            <h3 className="text-lg font-semibold mb-6">Quick Links</h3>
-            <ul className="space-y-3">
+          <div className="lg:col-span-2">
+            <h3 className="text-white font-bold mb-6 tracking-wide uppercase text-xs">
+              Platform
+            </h3>
+            <ul className="space-y-4">
               {[
-                "How It Works",
+                "How it Works",
                 "Browse Services",
-                "Become a Provider",
                 "Pricing",
-                "About Us",
-                "Blog",
+                "Success Stories",
+                "Tatari Pro",
               ].map((item) => (
                 <li key={item}>
                   <Link
                     href="#"
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="hover:text-indigo-400 transition-colors text-sm"
                   >
                     {item}
                   </Link>
@@ -72,22 +71,23 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Support */}
-          <div>
-            <h3 className="text-lg font-semibold mb-6">Support</h3>
-            <ul className="space-y-3">
+          {/* Support Links */}
+          <div className="lg:col-span-2">
+            <h3 className="text-white font-bold mb-6 tracking-wide uppercase text-xs">
+              Support
+            </h3>
+            <ul className="space-y-4">
               {[
                 "Help Center",
                 "Safety Center",
-                "FAQ",
-                "Contact Us",
+                "Community",
                 "Terms of Service",
                 "Privacy Policy",
               ].map((item) => (
                 <li key={item}>
                   <Link
                     href="#"
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="hover:text-indigo-400 transition-colors text-sm"
                   >
                     {item}
                   </Link>
@@ -96,45 +96,57 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Newsletter */}
-          <div>
-            <h3 className="text-lg font-semibold mb-6">Stay Updated</h3>
-            <p className="text-gray-400 mb-4">
-              Subscribe to our newsletter for the latest updates and tips.
+          {/* Newsletter Column */}
+          <div className="lg:col-span-4">
+            <h3 className="text-white font-bold mb-6 tracking-wide uppercase text-xs">
+              Stay in the loop
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">
+              Subscribe to get latest updates, tips for pros, and exclusive
+              offers.
             </p>
-            <div className="flex gap-2 mb-6">
-              <Input
-                placeholder="Your email"
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Mail size={18} />
-              </Button>
-            </div>
 
-            {/* Contact info */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-gray-400">
-                <Phone size={18} />
-                <span>+251 911 234 567</span>
+            {/* Contact Details */}
+            <div className="mt-8 space-y-3">
+              <div className="flex items-center gap-3 text-sm text-slate-400 hover:text-white transition-colors cursor-default">
+                <Mail size={16} className="text-indigo-500" />
+                <span>support@tatari.com</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-400">
-                <Mail size={18} />
-                <span>support@Tatari.com</span>
-              </div>
-              <div className="flex items-center gap-3 text-gray-400">
-                <MapPin size={18} />
+              <div className="flex items-center gap-3 text-sm text-slate-400">
+                <MapPin size={16} className="text-indigo-500" />
                 <span>Addis Ababa, Ethiopia</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-          <p>© {new Date().getFullYear()} Tatari Hub. All rights reserved.</p>
-          <p className="mt-2 text-sm">
-            Empowering Ethiopia&apos;s workforce through technology
-          </p>
+        {/* Bottom Bar */}
+        <div className="pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-sm text-slate-500">
+            © {currentYear} Tatari Hub. All rights reserved.
+          </div>
+
+          {/* Operational Status */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+                Systems Operational
+              </span>
+            </div>
+
+            <div className="flex gap-4 text-xs font-medium text-slate-500 uppercase tracking-widest">
+              <Link href="#" className="hover:text-white transition-colors">
+                English
+              </Link>
+              <Link href="#" className="hover:text-white transition-colors">
+                Amharic
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
