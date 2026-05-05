@@ -169,12 +169,6 @@ function LoginContent() {
             <h1 className="text-4xl font-extrabold text-slate-900 mb-2 tracking-tight">
               Welcome back
             </h1>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 text-lg">Logging in as</span>
-              <Badge className="bg-indigo-600 text-white border-none px-3 py-0.5 capitalize text-sm font-bold">
-                {role}
-              </Badge>
-            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -200,12 +194,12 @@ function LoginContent() {
                 <Label className="text-slate-900 font-bold text-sm">
                   Password
                 </Label>
-                <Link
-                  href="#"
+                {/* <Link
+                  href={`/forgot-password?role=${role}`}
                   className="text-sm text-indigo-600 font-bold hover:underline"
                 >
-                  Forgot?
-                </Link>
+                  Forgot password?
+                </Link> */}
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
@@ -237,15 +231,6 @@ function LoginContent() {
           </form>
 
           <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
-            <p className="text-center text-slate-600 text-sm">
-              Need to login as a {role === "client" ? "Provider" : "Client"}?{" "}
-              <Link
-                href={`/login?role=${role === "client" ? "provider" : "client"}`}
-                className="text-indigo-600 font-bold hover:underline"
-              >
-                Switch Role
-              </Link>
-            </p>
             <p className="text-center text-slate-600 text-sm">
               New to Tatari?{" "}
               <Link

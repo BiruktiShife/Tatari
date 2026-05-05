@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { Star, Quote, CheckCircle, ArrowUpRight } from "lucide-react";
+import { Star, Quote, CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 const reviews = [
@@ -76,7 +76,7 @@ export default function Testimonials() {
                 </div>
 
                 <p className="text-slate-700 leading-relaxed mb-8 relative z-10 italic">
-                  "{review.content}"
+                  &ldquo;{review.content}&rdquo;
                 </p>
 
                 <div className="flex items-center gap-4">

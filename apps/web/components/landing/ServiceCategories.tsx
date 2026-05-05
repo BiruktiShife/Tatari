@@ -52,7 +52,7 @@ const categories = [
 
 export default function ServiceCategories() {
   return (
-    <section className="py-24 bg-white">
+    <section id="services" className="py-24 bg-white">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
           <div className="max-w-2xl">

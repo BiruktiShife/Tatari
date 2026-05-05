@@ -2,7 +2,7 @@ import { CheckCircle2, Search, Zap, ShieldCheck } from "lucide-react";
 
 export default function HowItWorks() {
   return (
-    <section className="py-24 bg-slate-50">
+    <section id="how-it-works" className="py-24 bg-slate-50">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">

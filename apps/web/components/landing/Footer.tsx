@@ -1,15 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import {
-  Facebook,
-  Twitter,
-  Instagram,
-  Linkedin,
-  Mail,
-  MapPin,
-  Zap,
-} from "lucide-react";
+import { Facebook, Instagram, Linkedin, Mail, MapPin, Zap } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -34,7 +26,7 @@ export default function Footer() {
               and efficiently.
             </p>
             <div className="flex gap-3">
-              {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
+              {[Facebook, Instagram, Linkedin].map((Icon, i) => (
                 <Link
                   key={i}
                   href="#"
