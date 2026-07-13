@@ -102,7 +102,18 @@ export default function AdminAnalyticsPage() {
     );
   }
 
-  const stats = data?.stats;
+  const stats = data?.stats ?? {
+    totalUsers: 0,
+    activeJobs: 0,
+    platformRevenue: 0,
+    completionRate: 0,
+    avgRating: 0,
+    reviewCount: 0,
+    retentionRate: 0,
+  };
+  const revenueData = data?.revenueData ?? [];
+  const categoryData = data?.categoryData ?? [];
+  const userGrowthData = data?.userGrowthData ?? [];
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-8 pb-20 px-2">
@@ -146,7 +157,7 @@ export default function AdminAnalyticsPage() {
         {[
           {
             label: "Gross Revenue",
-            val: `ETB ${stats?.platformRevenue.toLocaleString()}`,
+            val: `ETB ${stats.platformRevenue.toLocaleString()}`,
             icon: DollarSign,
             color: "text-emerald-500",
             bg: "bg-emerald-50",
@@ -226,7 +237,7 @@ export default function AdminAnalyticsPage() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.revenueData}>
+              <BarChart data={revenueData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -276,18 +287,21 @@ export default function AdminAnalyticsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={data?.categoryData}
+                  data={categoryData}
                   innerRadius={70}
                   outerRadius={100}
                   paddingAngle={8}
                   dataKey="value"
+                  label={({ name, percent }) => {
+                    const labelName = typeof name === "string" ? name : "Category";
+                    const safePercent = typeof percent === "number" ? percent : 0;
+                    return `${labelName}: ${Math.round(safePercent * 100)}%`;
+                  }}
                 >
-                  {data?.categoryData.map((index: number) => (
+                  {categoryData.map((entry: any, index: number) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={
-                        ["#4f46e5", "#10b981", "#f59e0b", "#ef4444"][index % 4]
-                      }
+                      fill={entry.color || ["#4f46e5", "#10b981", "#f59e0b", "#ef4444"][index % 4]}
                     />
                   ))}
                 </Pie>
@@ -296,7 +310,7 @@ export default function AdminAnalyticsPage() {
             </ResponsiveContainer>
           </div>
           <div className="space-y-3 pt-6 border-t border-slate-50">
-            {data?.categoryData.slice(0, 3).map((cat: any, i: number) => (
+            {categoryData.slice(0, 3).map((cat: any, i: number) => (
               <div key={i} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div
@@ -329,7 +343,7 @@ export default function AdminAnalyticsPage() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data?.userGrowthData}>
+              <LineChart data={userGrowthData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}

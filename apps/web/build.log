@@ -1,0 +1,66 @@
+
+> web@0.1.0 build
+> next build
+
+▲ Next.js 16.2.1 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ Compiled successfully in 6.5min
+  Running TypeScript ...
+  Finished TypeScript in 6.0min ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/34) ...
+  Generating static pages using 3 workers (8/34) 
+  Generating static pages using 3 workers (16/34) 
+  Generating static pages using 3 workers (25/34) 
+✓ Generating static pages using 3 workers (34/34) in 43s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/analytics
+├ ○ /admin/disputes
+├ ○ /admin/jobs
+├ ƒ /admin/jobs/[id]
+├ ○ /admin/transactions
+├ ○ /admin/users
+├ ○ /client
+├ ○ /client/disputes/new
+├ ○ /client/jobs
+├ ƒ /client/jobs/[id]
+├ ƒ /client/jobs/[id]/quotes
+├ ƒ /client/jobs/[id]/updates
+├ ○ /client/messages
+├ ○ /client/payments
+├ ○ /client/post-job
+├ ○ /client/providers
+├ ○ /client/reviews
+├ ○ /forgot-password
+├ ○ /login
+├ ○ /pricing
+├ ○ /privacy
+├ ○ /provider
+├ ○ /provider/disputes/new
+├ ○ /provider/earnings
+├ ○ /provider/jobs
+├ ƒ /provider/jobs/[id]
+├ ƒ /provider/jobs/[id]/update
+├ ○ /provider/messages
+├ ○ /provider/my-jobs
+├ ○ /provider/profile
+├ ○ /provider/reviews
+├ ○ /provider/service-area
+├ ○ /register
+├ ○ /reset-password
+└ ○ /terms
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
