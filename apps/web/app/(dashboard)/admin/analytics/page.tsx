@@ -293,15 +293,20 @@ export default function AdminAnalyticsPage() {
                   paddingAngle={8}
                   dataKey="value"
                   label={({ name, percent }) => {
-                    const labelName = typeof name === "string" ? name : "Category";
-                    const safePercent = typeof percent === "number" ? percent : 0;
+                    const labelName =
+                      typeof name === "string" ? name : "Category";
+                    const safePercent =
+                      typeof percent === "number" ? percent : 0;
                     return `${labelName}: ${Math.round(safePercent * 100)}%`;
                   }}
                 >
                   {categoryData.map((entry: any, index: number) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={entry.color || ["#4f46e5", "#10b981", "#f59e0b", "#ef4444"][index % 4]}
+                      fill={
+                        entry.color ||
+                        ["#4f46e5", "#10b981", "#f59e0b", "#ef4444"][index % 4]
+                      }
                     />
                   ))}
                 </Pie>
