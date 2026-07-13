@@ -207,7 +207,6 @@ export default function AdminAnalyticsPage() {
         ))}
       </div>
 
-      {/* 3. Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Revenue/Jobs Bar Chart */}
         <Card className="lg:col-span-8 rounded-[2.5rem] border-none shadow-sm bg-white p-8 overflow-hidden">
