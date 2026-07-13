@@ -266,20 +266,6 @@ function FindProvidersContent() {
               quality and reliability.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <div className="text-2xl font-black text-indigo-400">850+</div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-tight">
-                Active Pros
-              </div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <div className="text-2xl font-black text-emerald-400">4.9/5</div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-tight">
-                Avg. Rating
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
